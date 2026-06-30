@@ -73,6 +73,7 @@ const ProductCard = ({ product }) => {
     >
       {/* Product Image */}
       <Link href={`/product/${product._id}`} className="relative aspect-[4/5] overflow-hidden bg-zinc-50 dark:bg-zinc-900">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={product.images?.[0] || "https://placehold.co/600x800"}
           alt={product.title}

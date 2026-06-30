@@ -49,6 +49,7 @@ const Navbar = () => {
   // Sync search input with URL search query if exists
   useEffect(() => {
     const q = searchParams.get("search");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (q) setSearchQuery(q);
   }, [searchParams]);
 
@@ -83,6 +84,7 @@ const Navbar = () => {
       const delayDebounce = setTimeout(fetchSuggestions, 300);
       return () => clearTimeout(delayDebounce);
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuggestions([]);
       setShowSuggestions(false);
     }
@@ -248,6 +250,7 @@ const Navbar = () => {
                       className="flex items-center gap-3 rounded-lg p-2 hover:bg-zinc-50 dark:hover:bg-zinc-900"
                     >
                       <div className="relative h-10 w-8 flex-shrink-0 overflow-hidden rounded-md">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={prod.images?.[0]} alt={prod.title} className="h-full w-full object-cover" />
                       </div>
                       <div className="flex-1 overflow-hidden">

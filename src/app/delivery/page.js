@@ -40,71 +40,7 @@ const DeliveryDashboard = () => {
   const [socket, setSocket] = useState(null);
   const [activeTrackingOrderId, setActiveTrackingOrderId] = useState(null);
 
-  // Security check: must be delivery partner
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth");
-    } else if (user && user.role !== "Delivery Partner") {
-      toast.error("Unauthorized access. Courier privileges required.");
-      router.push("/");
-    } else {
-      fetchDeliveryJobs();
-    }
-  }, [isAuthenticated, user, router]);
-
-  // Tab dynamic load
-  useEffect(() => {
-    if (!user) return;
-    if (activeTab === "jobs") {
-      fetchDeliveryJobs();
-    } else if (activeTab === "earnings") {
-      fetchCourierEarnings();
-    }
-  }, [activeTab, user]);
-
-  // Initialize socket connection
-  useEffect(() => {
-    if (!user) return;
-    const socketInstance = io();
-    setSocket(socketInstance);
-
-    socketInstance.emit("join", { userId: user._id, role: user.role });
-
-    return () => {
-      socketInstance.disconnect();
-    };
-  }, [user]);
-
-  // Simulate Geo-Location Pings
-  useEffect(() => {
-    if (!socket || !activeTrackingOrderId) return;
-
-    let coords = { lat: 85, lng: 85 }; // start coords
-
-    const pingInterval = setInterval(() => {
-      // Simulate agent moving closer to home (center coords: 50, 50)
-      coords = {
-        lat: coords.lat > 50 ? coords.lat - 5 : 50,
-        lng: coords.lng > 50 ? coords.lng - 5 : 50
-      };
-
-      socket.emit("updateLocation", {
-        orderId: activeTrackingOrderId,
-        latitude: coords.lat,
-        longitude: coords.lng
-      });
-
-      console.log(`> Sent location ping for Order ${activeTrackingOrderId}:`, coords);
-
-      if (coords.lat === 50 && coords.lng === 50) {
-        clearInterval(pingInterval);
-        setActiveTrackingOrderId(null);
-        toast.success("Destination reached! Geolocation ping complete.");
-      }
-    }, 5000);
-
-    return () => clearInterval(pingInterval);
-  }, [socket, activeTrackingOrderId]);
+  // ── Fetch helpers (before useEffects) ──
 
   const fetchDeliveryJobs = async () => {
     setLoading(true);
@@ -133,6 +69,72 @@ const DeliveryDashboard = () => {
       setLoading(false);
     }
   };
+
+  // Security check: must be delivery partner
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/auth");
+    } else if (user && user.role !== "Delivery Partner") {
+      toast.error("Unauthorized access. Courier privileges required.");
+      router.push("/");
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchDeliveryJobs();
+    }
+  }, [isAuthenticated, user, router]);
+
+  // Tab dynamic load
+  useEffect(() => {
+    if (!user) return;
+    if (activeTab === "jobs") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchDeliveryJobs();
+    } else if (activeTab === "earnings") {
+      fetchCourierEarnings();
+    }
+  }, [activeTab, user]);
+
+  // Initialize socket connection
+  useEffect(() => {
+    if (!user) return;
+    const socketInstance = io();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSocket(socketInstance);
+
+    socketInstance.emit("join", { userId: user._id, role: user.role });
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [user]);
+
+  // Simulate Geo-Location Pings
+  useEffect(() => {
+    if (!socket || !activeTrackingOrderId) return;
+
+    let coords = { lat: 85, lng: 85 };
+
+    const pingInterval = setInterval(() => {
+      coords = {
+        lat: coords.lat > 50 ? coords.lat - 5 : 50,
+        lng: coords.lng > 50 ? coords.lng - 5 : 50
+      };
+
+      socket.emit("updateLocation", {
+        orderId: activeTrackingOrderId,
+        latitude: coords.lat,
+        longitude: coords.lng
+      });
+
+      if (coords.lat === 50 && coords.lng === 50) {
+        clearInterval(pingInterval);
+        setActiveTrackingOrderId(null);
+        toast.success("Destination reached! Geolocation ping complete.");
+      }
+    }, 5000);
+
+    return () => clearInterval(pingInterval);
+  }, [socket, activeTrackingOrderId]);
 
   // Accept task
   const handleAcceptPickup = async (orderId) => {

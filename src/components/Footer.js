@@ -38,7 +38,7 @@ const Footer = () => {
               <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-0.5">LUXURY STORE</p>
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
-              Discover curated luxury apparel and accessories selected from the world's finest design houses. Redefining modern apparel collections.
+              Discover curated luxury apparel and accessories selected from the world&apos;s finest design houses. Redefining modern apparel collections.
             </p>
             <div className="flex gap-4 mt-2 text-lg text-zinc-400 dark:text-zinc-500">
               <a href="#" className="hover:text-black dark:hover:text-white transition-colors"><IoLogoFacebook /></a>
@@ -51,8 +51,8 @@ const Footer = () => {
           <div>
             <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-widest mb-4">Categories</h4>
             <div className="flex flex-col gap-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              <Link href="/search?category=Men" className="hover:text-black dark:hover:text-white transition-colors">Men's Apparel</Link>
-              <Link href="/search?category=Women" className="hover:text-black dark:hover:text-white transition-colors">Women's Collection</Link>
+              <Link href="/search?category=Men" className="hover:text-black dark:hover:text-white transition-colors">Men&apos;s Apparel</Link>
+              <Link href="/search?category=Women" className="hover:text-black dark:hover:text-white transition-colors">Women&apos;s Collection</Link>
               <Link href="/search?category=Shoes" className="hover:text-black dark:hover:text-white transition-colors">Premium Footwear</Link>
               <Link href="/search?category=Watches" className="hover:text-black dark:hover:text-white transition-colors">Luxury Watches</Link>
               <Link href="/search?category=Beauty" className="hover:text-black dark:hover:text-white transition-colors">Cosmetics & Beauty</Link>

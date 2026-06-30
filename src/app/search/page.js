@@ -298,7 +298,7 @@ const SearchPage = () => {
                 <span className="text-4xl mb-4">🔍</span>
                 <h3 className="text-base font-bold uppercase">No products match search criteria</h3>
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2 max-w-xs">
-                  We couldn't find matches. Try clearing some filters or exploring a different keyword.
+                  We couldn&apos;t find matches. Try clearing some filters or exploring a different keyword.
                 </p>
                 <button
                   onClick={handleClearFilters}

@@ -56,10 +56,12 @@ export default function Home() {
     fetchHomeData();
 
     // Auto rotate hero banner
+    const heroLen = heroSlider.length;
     const timer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % heroSlider.length);
+      setHeroIndex((prev) => (prev + 1) % heroLen);
     }, 6000);
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const testimonials = [
@@ -90,6 +92,7 @@ export default function Home() {
             className="absolute inset-0"
           >
             <div className="absolute inset-0 bg-black/35 z-10" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={heroSlider[heroIndex].image}
               alt={heroSlider[heroIndex].title}
@@ -172,6 +175,7 @@ export default function Home() {
                   href={`/search?category=${cat.name}`}
                   className="group relative h-48 w-36 flex-shrink-0 overflow-hidden rounded-2xl snap-start bg-zinc-50 dark:bg-zinc-900"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={cat.image}
                     alt={cat.name}
@@ -287,7 +291,7 @@ export default function Home() {
             {testimonials.map((test) => (
               <div key={test.id} className="flex flex-col justify-between p-6 rounded-3xl border border-zinc-100 bg-white shadow-sm dark:border-zinc-900 dark:bg-zinc-950">
                 <p className="text-xs italic text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                  "{test.text}"
+                  &quot;{test.text}&quot;
                 </p>
                 <div className="mt-6 flex items-center gap-3 border-t border-zinc-50 pt-4 dark:border-zinc-900">
                   <div className="h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center font-bold text-xs">

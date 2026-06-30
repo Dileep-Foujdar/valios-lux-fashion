@@ -276,7 +276,7 @@ const AuthPage = () => {
 
           {/* Legal / Policy note */}
           <div className="mt-8 text-center text-[10px] text-zinc-400 dark:text-zinc-500 font-medium leading-relaxed">
-            By signing in, you agree to VALOIS's <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>. We do not distribute spam.
+            By signing in, you agree to VALOIS&apos;s <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>. We do not distribute spam.
           </div>
         </motion.div>
       </main>

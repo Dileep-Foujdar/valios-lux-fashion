@@ -54,49 +54,7 @@ const ProfilePage = () => {
   const [trackingOrder, setTrackingOrder] = useState(null);
   const [agentCoords, setAgentCoords] = useState({ lat: 50, lng: 50 }); // radar simulated coordinates
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth");
-    } else if (user) {
-      setNameInput(user.name);
-      setEmailInput(user.email);
-      setMobileInput(user.mobile);
-      fetchAddresses();
-      fetchOrders();
-      fetchWalletInfo();
-    }
-  }, [isAuthenticated, user, router]);
-
-  // Socket.io for Realtime Agent Tracking
-  useEffect(() => {
-    if (!trackingOrder) return;
-    
-    // Connect to same host relative port
-    const socket = io();
-    
-    socket.emit("join", { userId: user?._id });
-    socket.emit("joinOrderTracking", { orderId: trackingOrder._id });
-
-    socket.on("locationUpdated", (data) => {
-      // Scale coordinates on our radar UI
-      setAgentCoords({ lat: data.latitude, lng: data.longitude });
-      toast.success("Delivery Agent location updated!");
-    });
-
-    // Simulate agent movement for visual wow effect if socket location is not updated
-    const movementInterval = setInterval(() => {
-      setAgentCoords(prev => {
-        const nextLat = prev.lat > 15 ? prev.lat - 1.5 : 15;
-        const nextLng = prev.lng > 15 ? prev.lng - 1.2 : 15;
-        return { lat: nextLat, lng: nextLng };
-      });
-    }, 4000);
-
-    return () => {
-      socket.disconnect();
-      clearInterval(movementInterval);
-    };
-  }, [trackingOrder, user]);
+  // ── Fetch helpers (before useEffects) ──
 
   const fetchOrders = async () => {
     setLoadingOrders(true);
@@ -133,6 +91,46 @@ const ProfilePage = () => {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/auth");
+    } else if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNameInput(user.name);
+      setEmailInput(user.email);
+      setMobileInput(user.mobile);
+      fetchAddresses();
+      fetchOrders();
+      fetchWalletInfo();
+    }
+  }, [isAuthenticated, user, router]);
+
+  // Socket.io for Realtime Agent Tracking
+  useEffect(() => {
+    if (!trackingOrder) return;
+    const socket = io();
+    socket.emit("join", { userId: user?._id });
+    socket.emit("joinOrderTracking", { orderId: trackingOrder._id });
+
+    socket.on("locationUpdated", (data) => {
+      setAgentCoords({ lat: data.latitude, lng: data.longitude });
+      toast.success("Delivery Agent location updated!");
+    });
+
+    const movementInterval = setInterval(() => {
+      setAgentCoords(prev => {
+        const nextLat = prev.lat > 15 ? prev.lat - 1.5 : 15;
+        const nextLng = prev.lng > 15 ? prev.lng - 1.2 : 15;
+        return { lat: nextLat, lng: nextLng };
+      });
+    }, 4000);
+
+    return () => {
+      socket.disconnect();
+      clearInterval(movementInterval);
+    };
+  }, [trackingOrder, user]);
 
   // Profile Save
   const handleProfileSave = async (e) => {
@@ -269,7 +267,7 @@ const ProfilePage = () => {
                   ))
                 ) : orders.length === 0 ? (
                   <div className="border border-dashed border-zinc-150 rounded-2xl p-16 text-center dark:border-zinc-850">
-                    <p className="text-xs text-zinc-400">You haven't placed any orders yet.</p>
+                    <p className="text-xs text-zinc-400">You haven&apos;t placed any orders yet.</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-6">
@@ -296,7 +294,8 @@ const ProfilePage = () => {
                         <div className="flex flex-col gap-3">
                           {ord.items.map((item, idx) => (
                             <div key={idx} className="flex gap-3 text-xs font-semibold">
-                              <img src={item.product?.images?.[0]} className="h-12 w-10 rounded object-cover flex-shrink-0" />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={item.product?.images?.[0]} alt="" className="h-12 w-10 rounded object-cover flex-shrink-0" />
                               <div className="flex-grow overflow-hidden">
                                 <h4 className="truncate">{item.product?.title || "Fashion Item"}</h4>
                                 <p className="text-[10px] text-zinc-400 mt-0.5">Qty: {item.quantity} | Size: {item.size} | Color: {item.color}</p>
@@ -515,7 +514,7 @@ const ProfilePage = () => {
                   </h3>
 
                   {walletInfo.referredUsers?.length === 0 ? (
-                    <p className="text-xs text-zinc-400">You haven't referred any accounts yet. Share code to start earning credit!</p>
+                    <p className="text-xs text-zinc-400">You haven&apos;t referred any accounts yet. Share code to start earning credit!</p>
                   ) : (
                     <div className="flex flex-col gap-3">
                       {walletInfo.referredUsers.map((refUser, idx) => (

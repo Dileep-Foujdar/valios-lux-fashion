@@ -52,7 +52,7 @@ const WishlistPage = () => {
             </div>
             <h3 className="text-sm font-bold uppercase">Wishlist is empty</h3>
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2 max-w-xs leading-relaxed">
-              Browse our collections and tap the heart icon on products that catch your eye. They'll save here!
+              Browse our collections and tap the heart icon on products that catch your eye. They&apos;ll save here!
             </p>
             <Link
               href="/search"

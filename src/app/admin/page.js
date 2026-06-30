@@ -49,32 +49,7 @@ const AdminDashboard = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
 
-  // Security gate: redirect if not admin/owner
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth");
-    } else if (user && !["Admin", "Owner", "Super Admin"].includes(user.role)) {
-      toast.error("Unauthorized access to admin panel.");
-      router.push("/");
-    } else {
-      fetchDashboardStats();
-    }
-  }, [isAuthenticated, user, router]);
-
-  // Tab change effect
-  useEffect(() => {
-    if (!user) return;
-    if (activeTab === "orders") {
-      fetchAdminOrders();
-      fetchDeliveryPartners();
-    } else if (activeTab === "inventory") {
-      fetchAdminProducts();
-    } else if (activeTab === "users") {
-      fetchAdminUsers();
-    } else if (activeTab === "settings") {
-      fetchAdminSettings();
-    }
-  }, [activeTab, user]);
+  // ── Fetch helpers (declared before useEffects to satisfy hoisting rules) ──
 
   const fetchDashboardStats = async () => {
     setLoading(true);
@@ -92,12 +67,7 @@ const AdminDashboard = () => {
 
   const fetchAdminOrders = async () => {
     try {
-      // Fetch all orders on system
-      const res = await api.get("/orders/my"); // reusing endpoint, backend supports admin fetching all orders if admin role
-      // Wait, let's make sure the backend `/orders/my` or `/orders` lists all orders.
-      // Actually, we wrote an endpoint `/api/admin/stats` that gives summary, and we can query orders.
-      // Let's call the generic order fetch:
-      const ordersRes = await api.get("/orders/my"); 
+      const ordersRes = await api.get("/orders/my");
       if (ordersRes.data.success) {
         setOrders(ordersRes.data.orders);
       }
@@ -155,6 +125,35 @@ const AdminDashboard = () => {
       console.error(err);
     }
   };
+
+  // Security gate: redirect if not admin/owner
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/auth");
+    } else if (user && !["Admin", "Owner", "Super Admin"].includes(user.role)) {
+      toast.error("Unauthorized access to admin panel.");
+      router.push("/");
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchDashboardStats();
+    }
+  }, [isAuthenticated, user, router]);
+
+  // Tab change effect
+  useEffect(() => {
+    if (!user) return;
+    if (activeTab === "orders") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchAdminOrders();
+      fetchDeliveryPartners();
+    } else if (activeTab === "inventory") {
+      fetchAdminProducts();
+    } else if (activeTab === "users") {
+      fetchAdminUsers();
+    } else if (activeTab === "settings") {
+      fetchAdminSettings();
+    }
+  }, [activeTab, user]);
 
   // Assign delivery partner
   const handleAssignDelivery = async (orderId, partnerId) => {
@@ -543,7 +542,8 @@ const AdminDashboard = () => {
                           {products.map(prod => (
                             <tr key={prod._id} className="border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/20 dark:hover:bg-zinc-900/10">
                               <td className="p-4 flex items-center gap-3">
-                                <img src={prod.images?.[0]} className="h-10 w-8 rounded object-cover flex-shrink-0" />
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={prod.images?.[0]} alt="" className="h-10 w-8 rounded object-cover flex-shrink-0" />
                                 <div>
                                   <h4 className="font-bold truncate max-w-[180px]">{prod.title}</h4>
                                   <span className="text-[10px] text-zinc-400 uppercase font-semibold">{prod.brand}</span>

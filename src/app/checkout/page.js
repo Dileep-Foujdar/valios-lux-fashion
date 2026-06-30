@@ -73,6 +73,7 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchProfileInfo();
     }
   }, [isAuthenticated]);
@@ -472,7 +473,8 @@ const CheckoutPage = () => {
               <div className="flex flex-col gap-3.5 mb-5 max-h-48 overflow-y-auto pr-1">
                 {items.map((item) => (
                   <div key={item._id} className="flex gap-3 text-xs font-semibold">
-                    <img src={item.product?.images?.[0]} className="h-10 w-8 rounded object-cover flex-shrink-0" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.product?.images?.[0]} alt="" className="h-10 w-8 rounded object-cover flex-shrink-0" />
                     <div className="flex-1 overflow-hidden">
                       <h4 className="truncate">{item.product?.title}</h4>
                       <p className="text-[10px] text-zinc-400 mt-0.5">Qty: {item.quantity} | Size: {item.size}</p>

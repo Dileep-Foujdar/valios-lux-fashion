@@ -219,6 +219,7 @@ const ProductDetailClient = ({ productId }) => {
                       onMouseLeave={handleMouseLeave}
                       className="relative h-full w-full cursor-zoom-in overflow-hidden"
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={product.images?.[selectedImageIdx]}
                         alt={product.title}
@@ -245,6 +246,7 @@ const ProductDetailClient = ({ productId }) => {
                   {activeMediaTab === "360" && (
                     <div className="relative h-full w-full flex flex-col justify-between p-4">
                       <div className="flex-1 flex items-center justify-center overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={product.view360Images?.[rotationIdx] || product.images?.[0]}
                           alt="360 view"
@@ -307,6 +309,7 @@ const ProductDetailClient = ({ productId }) => {
                         onClick={() => setSelectedImageIdx(idx)}
                         className={`relative aspect-square overflow-hidden rounded-xl bg-zinc-50 dark:bg-zinc-900 border transition-all ${selectedImageIdx === idx ? "border-black dark:border-white" : "border-transparent"}`}
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={img} alt="thumbnail" className="h-full w-full object-cover" />
                       </button>
                     ))}
@@ -538,6 +541,7 @@ const ProductDetailClient = ({ productId }) => {
                         </label>
                         {reviewImages.map((img, i) => (
                           <div key={i} className="relative h-12 w-12 rounded-xl overflow-hidden border border-zinc-100">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={img} alt="review upload" className="h-full w-full object-cover" />
                             <button
                               type="button"
@@ -598,6 +602,7 @@ const ProductDetailClient = ({ productId }) => {
                             <div className="flex gap-2">
                               {rev.images.map((img, idx) => (
                                 <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="relative h-14 w-14 rounded-xl overflow-hidden border border-zinc-100">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={img} alt="customer upload" className="h-full w-full object-cover" />
                                 </a>
                               ))}
@@ -614,7 +619,7 @@ const ProductDetailClient = ({ productId }) => {
                                 </span>
                               </div>
                               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
-                                "{rep.comment}"
+                                &quot;{rep.comment}&quot;
                               </p>
                             </div>
                           ))}

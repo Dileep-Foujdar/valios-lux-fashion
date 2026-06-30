@@ -176,6 +176,7 @@ const CartPage = () => {
                 >
                   {/* Thumbnail */}
                   <Link href={`/product/${item.product?._id}`} className="relative h-24 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-50 dark:bg-zinc-900">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={item.product?.images?.[0] || "https://placehold.co/100x120"}
                       alt={item.product?.title}

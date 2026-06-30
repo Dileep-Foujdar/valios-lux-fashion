@@ -29,17 +29,6 @@ const OwnerDashboard = () => {
   const [employees, setEmployees] = useState([]);
 
   // Check roles: Owner or Super Admin
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth");
-    } else if (user && !["Owner", "Super Admin"].includes(user.role)) {
-      toast.error("Unauthorized access. Owner permissions required.");
-      router.push("/");
-    } else {
-      fetchBusinessAnalytics();
-    }
-  }, [isAuthenticated, user, router]);
-
   const fetchBusinessAnalytics = async () => {
     setLoading(true);
     try {
@@ -52,7 +41,6 @@ const OwnerDashboard = () => {
         setBusinessData(statsRes.data.stats);
       }
       if (usersRes.data.success) {
-        // Employees are Admins and Delivery Partners
         const staff = usersRes.data.users.filter(u => ["Admin", "Delivery Partner"].includes(u.role));
         setEmployees(staff);
       }
@@ -62,6 +50,18 @@ const OwnerDashboard = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/auth");
+    } else if (user && !["Owner", "Super Admin"].includes(user.role)) {
+      toast.error("Unauthorized access. Owner permissions required.");
+      router.push("/");
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchBusinessAnalytics();
+    }
+  }, [isAuthenticated, user, router]);
 
   return (
     <>
