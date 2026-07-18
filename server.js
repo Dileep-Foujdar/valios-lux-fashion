@@ -94,6 +94,23 @@ nextApp.prepare().then(() => {
       console.log(`> Socket ${socket.id} joined rooms: user_${userId || 'guest'}, role_${role || 'guest'}`);
     });
 
+    // Realtime chat rooms for orders
+    socket.on("joinOrderChat", (data) => {
+      const { orderId } = data;
+      if (orderId) {
+        socket.join(`order_chat_${orderId}`);
+        console.log(`> Socket ${socket.id} joined order chat room: order_chat_${orderId}`);
+      }
+    });
+
+    socket.on("leaveOrderChat", (data) => {
+      const { orderId } = data;
+      if (orderId) {
+        socket.leave(`order_chat_${orderId}`);
+        console.log(`> Socket ${socket.id} left order chat room: order_chat_${orderId}`);
+      }
+    });
+
     // Realtime Delivery Partner Location Tracking
     socket.on("updateLocation", (data) => {
       const { orderId, latitude, longitude } = data;
