@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { useForm } from "react-hook-form";
+import { io } from "socket.io-client";
 import {
   IoStatsChartOutline,
   IoBagCheckOutline,
@@ -67,7 +68,7 @@ const AdminDashboard = () => {
 
   const fetchAdminOrders = async () => {
     try {
-      const ordersRes = await api.get("/orders/my");
+      const ordersRes = await api.get("/orders");
       if (ordersRes.data.success) {
         setOrders(ordersRes.data.orders);
       }
@@ -138,6 +139,33 @@ const AdminDashboard = () => {
       fetchDashboardStats();
     }
   }, [isAuthenticated, user, router]);
+
+  // Real-time updates via Socket.io
+  useEffect(() => {
+    if (!user || !["Admin", "Owner", "Super Admin"].includes(user.role)) return;
+
+    const socketUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const socket = io(socketUrl);
+
+    socket.on("connect", () => {
+      console.log("Admin connected to socket");
+      socket.emit("join", { userId: user._id, role: user.role });
+    });
+
+    socket.on("newOrder", (data) => {
+      toast.success(`New Order Received: #${data.orderNumber} (₹${data.total})`, {
+        icon: "🛍️",
+        duration: 5000
+      });
+      // Fetch latest orders & stats in real-time
+      fetchAdminOrders();
+      fetchDashboardStats();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user]);
 
   // Tab change effect
   useEffect(() => {
