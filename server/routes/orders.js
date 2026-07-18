@@ -8,6 +8,10 @@ import {
   returnOrReplaceOrder,
   getAllOrders
 } from "../controllers/orderController.js";
+import {
+  getOrderMessages,
+  sendOrderMessage
+} from "../controllers/messageController.js";
 import { isAuthenticated, authorizeRoles } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 
@@ -39,5 +43,9 @@ router.put(
   authorizeRoles("Admin", "Owner", "Super Admin", "Delivery Partner"),
   updateOrderStatus
 );
+
+// Chat / Messaging system associated with specific orders
+router.get("/:id/messages", isAuthenticated, getOrderMessages);
+router.post("/:id/messages", isAuthenticated, sendOrderMessage);
 
 export default router;

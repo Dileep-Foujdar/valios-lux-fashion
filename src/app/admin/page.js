@@ -14,7 +14,8 @@ import {
   IoAlertCircleOutline,
   IoAddCircleOutline,
   IoTrashOutline,
-  IoCreateOutline
+  IoCreateOutline,
+  IoChatbubbleEllipsesOutline
 } from "react-icons/io5";
 import toast from "react-hot-toast";
 
@@ -46,6 +47,11 @@ const AdminDashboard = () => {
   // Modals / Form triggers
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const { register: registerProd, handleSubmit: handleSubmitProd, reset: resetProd } = useForm();
+
+  // Chat system states
+  const [chatOrder, setChatOrder] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [newMessageText, setNewMessageText] = useState("");
   
   const [editingProduct, setEditingProduct] = useState(null);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
@@ -162,10 +168,71 @@ const AdminDashboard = () => {
       fetchDashboardStats();
     });
 
+    socket.on("customerChatMessage", (message) => {
+      toast(`New Chat from ${message.sender?.name || "Customer"}`, {
+        icon: "💬",
+        duration: 4000
+      });
+      // Refresh orders list to show the unread badge in real-time
+      fetchAdminOrders();
+    });
+
     return () => {
       socket.disconnect();
     };
   }, [user]);
+
+  // Socket connection for order chat
+  useEffect(() => {
+    if (!chatOrder) return;
+
+    // Load past messages
+    const fetchChatMessages = async () => {
+      try {
+        const res = await api.get(`/orders/${chatOrder._id}/messages`);
+        if (res.data.success) {
+          setChatMessages(res.data.messages);
+        }
+      } catch (err) {
+        toast.error("Failed to load chat history");
+      }
+    };
+
+    fetchChatMessages();
+
+    // Setup Socket
+    const socket = io();
+    socket.emit("join", { userId: user?._id, role: user?.role });
+    socket.emit("joinOrderChat", { orderId: chatOrder._id });
+
+    socket.on("newChatMessage", (message) => {
+      if (message.order === chatOrder._id) {
+        setChatMessages((prev) => [...prev, message]);
+      }
+    });
+
+    return () => {
+      socket.emit("leaveOrderChat", { orderId: chatOrder._id });
+      socket.disconnect();
+    };
+  }, [chatOrder, user]);
+
+  // Send chat message handler
+  const handleSendChatMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessageText.trim() || !chatOrder) return;
+
+    try {
+      const res = await api.post(`/orders/${chatOrder._id}/messages`, {
+        message: newMessageText.trim()
+      });
+      if (res.data.success) {
+        setNewMessageText("");
+      }
+    } catch (err) {
+      toast.error("Failed to send message");
+    }
+  };
 
   // Tab change effect
   useEffect(() => {
@@ -532,6 +599,17 @@ const AdminDashboard = () => {
                                     Ship Out (OTP generate)
                                   </button>
                                 )}
+
+                                {/* Chat with customer */}
+                                <button
+                                  onClick={() => {
+                                    setChatOrder(ord);
+                                    ord.adminUnread = false;
+                                  }}
+                                  className={`rounded-lg px-3.5 py-1 text-[10px] font-bold uppercase flex items-center gap-1.5 transition-all ${ord.adminUnread ? "bg-emerald-500 text-white animate-pulse" : "border border-zinc-200 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
+                                >
+                                  <IoChatbubbleEllipsesOutline /> Chat {ord.adminUnread && <span className="h-1.5 w-1.5 rounded-full bg-white block" />}
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1016,6 +1094,65 @@ const AdminDashboard = () => {
             </button>
           </form>
         )}
+      </Modal>
+
+      {/* MODAL: ORDER CHAT (ADMIN SIDE) */}
+      <Modal
+        isOpen={!!chatOrder}
+        onClose={() => setChatOrder(null)}
+        title={`Chat with Customer - Order #${chatOrder?.orderNumber}`}
+      >
+        <div className="flex flex-col h-[400px]">
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto p-4 border border-zinc-100 rounded-xl dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/20 flex flex-col gap-3">
+            {chatMessages.length === 0 ? (
+              <p className="text-xs text-zinc-400 text-center my-auto font-medium">No messages yet. Send a message to start chatting with the customer.</p>
+            ) : (
+              chatMessages.map((msg) => {
+                const customerId = chatOrder?.customer?._id || chatOrder?.customer;
+                const senderId = msg.sender?._id || msg.sender;
+                const isCustomer = senderId?.toString() === customerId?.toString();
+                const isMe = senderId?.toString() === user?._id?.toString();
+                const isAdminMessage = !isCustomer;
+                return (
+                  <div
+                    key={msg._id}
+                    className={`flex flex-col max-w-[80%] ${isMe ? "self-end items-end" : "self-start items-start"}`}
+                  >
+                    <span className="text-[9px] text-zinc-400 font-bold mb-1">
+                      {isMe ? "You (Support)" : (isCustomer ? `${msg.sender?.name || "Customer"} (Customer)` : `${msg.sender?.name || "Support"} (${msg.sender?.role || "Support"})`)}
+                    </span>
+                    <div
+                      className={`rounded-2xl px-4 py-2 text-xs font-semibold ${isMe ? "bg-black text-white dark:bg-white dark:text-black rounded-tr-none" : "bg-zinc-200 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 rounded-tl-none"}`}
+                    >
+                      {msg.message}
+                    </div>
+                    <span className="text-[9px] text-zinc-400 mt-1 font-medium">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Form input */}
+          <form onSubmit={handleSendChatMessage} className="flex gap-2 mt-4">
+            <input
+              type="text"
+              placeholder="Type your reply..."
+              value={newMessageText}
+              onChange={(e) => setNewMessageText(e.target.value)}
+              className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+            />
+            <button
+              type="submit"
+              className="rounded-xl bg-black px-5 text-xs font-bold uppercase text-white hover:bg-zinc-800 dark:bg-white dark:text-black"
+            >
+              Send
+            </button>
+          </form>
+        </div>
       </Modal>
 
       <Footer />

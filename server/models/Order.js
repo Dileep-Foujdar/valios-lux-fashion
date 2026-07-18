@@ -63,7 +63,9 @@ const OrderSchema = new mongoose.Schema({
   invoiceUrl: { type: String, default: "" },
   cancellationReason: String,
   returnReason: String,
-  otpForDelivery: { type: String } // OTP delivery verification
+  otpForDelivery: { type: String }, // OTP delivery verification
+  adminUnread: { type: Boolean, default: false },
+  customerUnread: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // Pre-save to generate order number if not present
