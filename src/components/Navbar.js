@@ -42,9 +42,31 @@ const Navbar = () => {
   const [isListening, setIsListening] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  
+
   const searchRef = useRef(null);
   const dropdownRef = useRef(null);
+
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      if (theme === "dark") {
+        setIsDark(true);
+      } else if (theme === "light") {
+        setIsDark(false);
+      } else {
+        setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
+      }
+    };
+    checkTheme();
+
+    if (theme === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = () => setIsDark(mediaQuery.matches);
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+  }, [theme]);
 
   // Sync search input with URL search query if exists
   useEffect(() => {
@@ -173,9 +195,10 @@ const Navbar = () => {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-zinc-100 bg-white/80 backdrop-blur-md dark:border-zinc-900 dark:bg-black/80 transition-colors">
+    <>
+      <header className="sticky top-0 z-50 w-full border-b border-zinc-100 bg-white/80 backdrop-blur-md dark:border-zinc-900 dark:bg-black/80 transition-colors">
       <div className="mx-auto flex max-w-7xl h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        
+
         {/* Mobile Menu Icon */}
         <button
           onClick={() => setIsMobileMenuOpen(true)}
@@ -267,7 +290,7 @@ const Navbar = () => {
 
         {/* ACTIONS */}
         <div className="flex items-center gap-1.5 sm:gap-3">
-          
+
           {/* Theme Switcher */}
           <button
             onClick={cycleTheme}
@@ -390,18 +413,19 @@ const Navbar = () => {
 
         </div>
       </div>
+    </header>
 
-      {/* MOBILE DRAWER */}
-      <AnimatePresence>
+    {/* MOBILE DRAWER */}
+    <AnimatePresence>
         {isMobileMenuOpen && (
           <>
             {/* Overlay background */}
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 z-50 bg-black"
+              className="fixed inset-0 z-50 mobile-overlay-bg"
             />
             {/* Drawer */}
             <motion.div
@@ -409,7 +433,7 @@ const Navbar = () => {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween", duration: 0.3 }}
-              className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white p-6 shadow-2xl dark:bg-zinc-950"
+              className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col p-6 shadow-2xl mobile-drawer-bg"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xl font-bold uppercase tracking-tight text-black dark:text-white">VALOIS</span>
@@ -438,7 +462,7 @@ const Navbar = () => {
               </div>
 
               {/* Mobile Links */}
-              <div className="mt-8 flex flex-col gap-4 text-sm font-bold text-zinc-800 dark:text-zinc-200">
+              <div className="mt-8 flex flex-col gap-4 text-sm font-bold text-zinc-800 dark:text-zinc-200" >
                 {categories.map((cat) => (
                   <Link
                     key={cat.name}
@@ -454,7 +478,7 @@ const Navbar = () => {
           </>
         )}
       </AnimatePresence>
-    </header>
+    </>
   );
 };
 
