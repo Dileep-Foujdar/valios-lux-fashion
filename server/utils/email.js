@@ -41,6 +41,8 @@ export const sendEmail = async ({ to, subject, html, text }) => {
     const transporter = await getTransporter();
     const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@fashionstore.com";
 
+    console.log(`[Email Debug] dispatching email targeting recipient: "${to}" for subject: "${subject}"`);
+
     if (!transporter) {
       console.log(`\n--- [MOCK EMAIL SENT] ---`);
       console.log(`To: ${to}`);
@@ -167,6 +169,34 @@ export const emailTemplates = {
 
       <div style="text-align: center; margin: 35px 0;">
         <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}/delivery" style="background-color: #10b981; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Accept & Navigate</a>
+      </div>
+      
+      <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 30px 0;" />
+      <div style="text-align: center; font-size: 12px; color: #94a3b8;">
+        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} VALOIS Lux. All rights reserved.</p>
+      </div>
+    </div>
+  `,
+
+  orderStatusUpdate: (order, status, otp) => `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #0f172a; text-transform: uppercase;">VALOIS</h1>
+        <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Order Update</p>
+      </div>
+      <p style="font-size: 16px; color: #334155; margin-top: 0; line-height: 1.6;">Dear Customer,</p>
+      <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-top: 0;">The status of your order <strong>#${order.orderNumber}</strong> has been updated to <strong>${status}</strong>.</p>
+      
+      ${status === "OutForDelivery" && otp ? `
+      <div style="background-color: #f8fafc; border-radius: 8px; padding: 25px; text-align: center; margin: 25px 0; border: 1px solid #e2e8f0;">
+        <p style="font-size: 14px; color: #475569; margin-top: 0; font-weight: 600;">Your Secure Delivery Verification OTP is:</p>
+        <h2 style="font-size: 36px; font-weight: 800; letter-spacing: 0.15em; margin: 15px 0; color: #0f172a;">${otp}</h2>
+        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 0;">Please share this code with the delivery partner only when you receive your package.</p>
+      </div>
+      ` : ""}
+
+      <div style="text-align: center; margin: 35px 0;">
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}/profile" style="background-color: #0f172a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Track Your Order</a>
       </div>
       
       <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 30px 0;" />

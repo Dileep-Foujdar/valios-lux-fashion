@@ -19,7 +19,9 @@ export const updateProfile = async (req, res, next) => {
 
     if (name) user.name = name;
     if (email) user.email = email.toLowerCase().trim();
-    if (mobile) user.mobile = mobile;
+    if (mobile !== undefined) {
+      user.mobile = (mobile && mobile.trim() !== "") ? mobile.trim() : undefined;
+    }
 
     await user.save();
 

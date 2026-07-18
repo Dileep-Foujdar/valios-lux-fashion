@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
-import { IoMailOutline, IoCallOutline, IoKeyOutline, IoLockClosedOutline } from "react-icons/io5";
+import { IoMailOutline, IoLockClosedOutline } from "react-icons/io5";
 import toast from "react-hot-toast";
 
 import api from "../../utils/api.js";
@@ -18,7 +18,6 @@ const AuthPage = () => {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
 
-  const [authMethod, setAuthMethod] = useState("email"); // email or mobile
   const [step, setStep] = useState(1); // 1: request, 2: verify
   const [destinationValue, setDestinationValue] = useState("");
   const [countdown, setCountdown] = useState(0);
@@ -46,16 +45,15 @@ const AuthPage = () => {
   const onSubmitDestination = async (data) => {
     dispatch(setLoading(true));
     try {
-      const payload = authMethod === "email" 
-        ? { email: data.email.toLowerCase().trim() } 
-        : { mobile: data.mobile.trim() };
-      
-      const destination = authMethod === "email" ? data.email : data.mobile;
-      setDestinationValue(destination);
+      const payload = { email: data.email.toLowerCase().trim() };
+      setDestinationValue(data.email);
 
       const res = await api.post("/auth/otp/request", payload);
       if (res.data.success) {
         toast.success(res.data.message);
+        if (res.data.otp) {
+          toast(`[DEV MODE] OTP Code: ${res.data.otp}`, { icon: "🔑", duration: 15000 });
+        }
         setStep(2);
         setCountdown(60); // 60s cooldown
       }
@@ -70,9 +68,7 @@ const AuthPage = () => {
   const onSubmitOtp = async (data) => {
     dispatch(setLoading(true));
     try {
-      const payload = authMethod === "email"
-        ? { email: destinationValue.toLowerCase().trim(), code: data.otp.trim() }
-        : { mobile: destinationValue.trim(), code: data.otp.trim() };
+      const payload = { email: destinationValue.toLowerCase().trim(), code: data.otp.trim() };
 
       const res = await api.post("/auth/otp/verify", payload);
       if (res.data.success) {
@@ -105,13 +101,14 @@ const AuthPage = () => {
   const handleResend = async () => {
     if (countdown > 0) return;
     try {
-      const payload = authMethod === "email"
-        ? { email: destinationValue.toLowerCase().trim() }
-        : { mobile: destinationValue.trim() };
+      const payload = { email: destinationValue.toLowerCase().trim() };
       
       const res = await api.post("/auth/otp/request", payload);
       if (res.data.success) {
         toast.success("New verification code sent!");
+        if (res.data.otp) {
+          toast(`[DEV MODE] OTP Code: ${res.data.otp}`, { icon: "🔑", duration: 15000 });
+        }
         setCountdown(60);
       }
     } catch (err) {
@@ -126,9 +123,10 @@ const AuthPage = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md rounded-3xl border border-zinc-100 bg-white p-8 shadow-xl dark:border-zinc-900 dark:bg-black/40"
+          className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-8 shadow-xl dark:border-zinc-800 dark:bg-zinc-900/50 transition-colors"
         >
-          <div className="text-center mb-8">
+          {/* Header info */}
+          <div className="mb-8 text-center">
             <h1 className="text-xl font-extrabold uppercase tracking-widest text-zinc-900 dark:text-white">
               VALOIS Access Portal
             </h1>
@@ -145,60 +143,24 @@ const AuthPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
               >
-                {/* Method selector */}
-                <div className="flex rounded-full bg-zinc-100 p-1 mb-6 dark:bg-zinc-900">
-                  <button
-                    onClick={() => setAuthMethod("email")}
-                    className={`flex-1 rounded-full py-2 text-xs font-bold transition-all ${authMethod === "email" ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white" : "text-zinc-400 dark:text-zinc-500"}`}
-                  >
-                    Email Address
-                  </button>
-                  <button
-                    onClick={() => setAuthMethod("mobile")}
-                    className={`flex-1 rounded-full py-2 text-xs font-bold transition-all ${authMethod === "mobile" ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white" : "text-zinc-400 dark:text-zinc-500"}`}
-                  >
-                    Mobile Number
-                  </button>
-                </div>
-
                 <form onSubmit={handleSubmit(onSubmitDestination)} className="flex flex-col gap-5">
-                  {authMethod === "email" ? (
-                    <div>
-                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 block">
-                        Email Address
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="email"
-                          placeholder="name@domain.com"
-                          {...register("email", { required: true, pattern: /^\S+@\S+$/i })}
-                          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-4 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white dark:text-white"
-                        />
-                        <IoMailOutline className="absolute left-4 top-3.5 text-zinc-400 text-lg" />
-                      </div>
-                      {errors.email && (
-                        <span className="text-[10px] text-red-500 font-medium mt-1 block">Please enter a valid email address</span>
-                      )}
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 block">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        placeholder="name@domain.com"
+                        {...register("email", { required: true, pattern: /^\S+@\S+$/i })}
+                        className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-4 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white dark:text-white"
+                      />
+                      <IoMailOutline className="absolute left-4 top-3.5 text-zinc-400 text-lg" />
                     </div>
-                  ) : (
-                    <div>
-                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 block">
-                        Mobile Number
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="tel"
-                          placeholder="+91 XXXXX XXXXX"
-                          {...register("mobile", { required: true, pattern: /^\+?[1-9]\d{1,14}$/ })}
-                          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-4 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white dark:text-white"
-                        />
-                        <IoCallOutline className="absolute left-4 top-3.5 text-zinc-400 text-lg" />
-                      </div>
-                      {errors.mobile && (
-                        <span className="text-[10px] text-red-500 font-medium mt-1 block">Please enter mobile with country code (e.g. +91)</span>
-                      )}
-                    </div>
-                  )}
+                    {errors.email && (
+                      <span className="text-[10px] text-red-500 font-medium mt-1 block">Please enter a valid email address</span>
+                    )}
+                  </div>
 
                   <button
                     type="submit"
