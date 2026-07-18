@@ -464,3 +464,21 @@ export const returnOrReplaceOrder = async (req, res, next) => {
     next(error);
   }
 };
+
+// 7. Get All Orders in the System (Admin/Owner/Super Admin/Delivery)
+export const getAllOrders = async (req, res, next) => {
+  try {
+    const orders = await Order.find()
+      .populate("customer", "name email mobile")
+      .populate("items.product", "title images brand salePrice")
+      .populate("deliveryPartner", "name mobile")
+      .sort("-createdAt");
+
+    res.status(200).json({
+      success: true,
+      orders
+    });
+  } catch (error) {
+    next(error);
+  }
+};
