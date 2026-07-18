@@ -238,14 +238,15 @@ export const getOrderById = async (req, res, next) => {
 export const cancelOrder = async (req, res, next) => {
   try {
     const { reason } = req.body;
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate("customer");
 
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
     // Safety checks
-    if (order.customer.toString() !== req.user._id.toString() && !["Admin", "Owner", "Super Admin"].includes(req.user.role)) {
+    const customerId = order.customer._id || order.customer;
+    if (customerId.toString() !== req.user._id.toString() && !["Admin", "Owner", "Super Admin"].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -273,18 +274,28 @@ export const cancelOrder = async (req, res, next) => {
     // Refund online payments or wallet deductions to User Wallet!
     if (order.paymentStatus === "Paid") {
       const refundAmount = order.pricing.total;
-      await User.findByIdAndUpdate(order.customer, { $inc: { walletBalance: refundAmount } });
+      await User.findByIdAndUpdate(customerId, { $inc: { walletBalance: refundAmount } });
       order.paymentStatus = "Refunded";
     }
 
     await order.save();
 
     // Send Cancellation alerts
-    const customer = await User.findById(order.customer);
-    await sendSMS({
-      to: customer.mobile,
-      body: smsTemplates.cancelled(order.orderNumber)
-    });
+    const customer = order.customer;
+    if (customer && customer.mobile) {
+      await sendSMS({
+        to: customer.mobile,
+        body: smsTemplates.cancelled(order.orderNumber)
+      });
+    }
+    if (customer && customer.email) {
+      await sendEmail({
+        to: customer.email,
+        subject: `Order #${order.orderNumber} Cancelled`,
+        html: emailTemplates.orderStatusUpdate(order, "Cancelled"),
+        text: `Your order #${order.orderNumber} has been cancelled.`
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -300,7 +311,7 @@ export const cancelOrder = async (req, res, next) => {
 export const updateOrderStatus = async (req, res, next) => {
   try {
     const { status, deliveryPartnerId } = req.body;
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate("customer");
 
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
@@ -323,18 +334,22 @@ export const updateOrderStatus = async (req, res, next) => {
         message: `Order status changed to ${status}`
       });
 
+      const customer = order.customer;
+
+      let deliveryOtp = undefined;
       // Special transitions
       if (status === "OutForDelivery") {
         // Generate secure delivery OTP
-        const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString();
         order.otpForDelivery = deliveryOtp;
         
         // Notify Customer with OTP
-        const customer = await User.findById(order.customer);
-        await sendSMS({
-          to: customer.mobile,
-          body: smsTemplates.outForDelivery(order.orderNumber, deliveryOtp)
-        });
+        if (customer && customer.mobile) {
+          await sendSMS({
+            to: customer.mobile,
+            body: smsTemplates.outForDelivery(order.orderNumber, deliveryOtp)
+          });
+        }
       }
 
       if (status === "Delivered") {
@@ -343,10 +358,24 @@ export const updateOrderStatus = async (req, res, next) => {
         }
         order.otpForDelivery = undefined; // clear delivery OTP
         
-        const customer = await User.findById(order.customer);
-        await sendSMS({
-          to: customer.mobile,
-          body: smsTemplates.delivered(order.orderNumber)
+        if (customer && customer.mobile) {
+          await sendSMS({
+            to: customer.mobile,
+            body: smsTemplates.delivered(order.orderNumber)
+          });
+        }
+      }
+
+      // Send status update email to Customer
+      if (customer && customer.email) {
+        await sendEmail({
+          to: customer.email,
+          subject: `Order #${order.orderNumber} Status Update: ${status}`,
+          html: emailTemplates.orderStatusUpdate(order, status, deliveryOtp || order.otpForDelivery),
+          text: `The status of your order #${order.orderNumber} has been updated to ${status}.` +
+                ((status === "OutForDelivery" && (deliveryOtp || order.otpForDelivery)) 
+                  ? ` Your secure delivery verification OTP is: ${deliveryOtp || order.otpForDelivery}` 
+                  : "")
         });
       }
     }

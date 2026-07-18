@@ -99,7 +99,7 @@ const ProfilePage = () => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setNameInput(user.name);
       setEmailInput(user.email);
-      setMobileInput(user.mobile);
+      setMobileInput(user.mobile || "");
       fetchAddresses();
       fetchOrders();
       fetchWalletInfo();

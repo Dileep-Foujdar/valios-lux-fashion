@@ -56,6 +56,11 @@ export const requestOTP = async (req, res, next) => {
       { upsert: true, new: true }
     );
 
+    // Check if channel is using mock setup
+    const isMockEmail = !process.env.SMTP_HOST || !process.env.SMTP_USER;
+    const isMockSms = !process.env.TWILIO_ACCOUNT_SID || process.env.TWILIO_ACCOUNT_SID === "mock_sid" || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_FROM_NUMBER;
+    const isMock = isEmail ? isMockEmail : isMockSms;
+
     // Send OTP via appropriate channel
     if (isEmail) {
       const emailHtml = emailTemplates.otp(otpCode);
@@ -76,7 +81,8 @@ export const requestOTP = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: `OTP sent successfully to ${destination}`
+      message: `OTP sent successfully to ${destination}` + (isMock ? ` (Mock OTP: ${otpCode})` : ""),
+      otp: isMock ? otpCode : undefined
     });
   } catch (error) {
     next(error);
@@ -139,7 +145,7 @@ export const verifyOTP = async (req, res, next) => {
       user = await User.create({
         name: tempName,
         email: email ? destination : `${destination}@valois-mobile.com`,
-        mobile: mobile ? destination : `+91${Math.floor(1000000000 + Math.random() * 9000000000)}`, // unique dummy mobile
+        mobile: mobile ? destination : undefined,
         role: "Customer"
       });
     }
@@ -344,3 +350,56 @@ export const forceOwnerLogin = async (req, res, next) => {
     next(error);
   }
 };
+
+// 8. Google Sign-In Login
+export const googleLogin = async (req, res, next) => {
+  try {
+    const { email, name } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required for Google login" });
+    }
+
+    let user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (!user) {
+      // Auto-register the Google user as a Customer
+      user = await User.create({
+        name: name || email.split("@")[0],
+        email: email.toLowerCase().trim(),
+        mobile: undefined,
+        role: "Customer"
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: "Your account is deactivated. Please contact support." });
+    }
+
+    // Generate tokens
+    const { accessToken, refreshToken } = generateTokens(user);
+
+    // Set cookies
+    res.cookie("token", accessToken, getCookieOptions(1));
+    res.cookie("refreshToken", refreshToken, getCookieOptions(7));
+
+    res.status(200).json({
+      success: true,
+      message: "Logged in with Google successfully",
+      token: accessToken,
+      refreshToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        walletBalance: user.walletBalance,
+        referralCode: user.referralCode
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
