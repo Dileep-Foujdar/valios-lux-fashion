@@ -218,246 +218,249 @@ const Navbar = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-zinc-100 bg-white/80 backdrop-blur-md dark:border-zinc-900 dark:bg-black/80 transition-colors">
-      <div className="mx-auto flex max-w-7xl h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 w-full max-w-full overflow-x-clip border-b border-zinc-100 bg-white/85 backdrop-blur-md dark:border-zinc-900 dark:bg-black/85 transition-colors">
+        <div className="mx-auto flex max-w-7xl h-14 sm:h-16 items-center justify-between px-2 sm:px-6 lg:px-8">
 
-        {/* Mobile Menu Icon */}
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 lg:hidden"
-        >
-          <IoMenuOutline className="text-2xl" />
-        </button>
-
-        {/* LOGO */}
-        <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0 mr-4 xl:mr-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Kirnya Logo" className="h-9 xl:h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
-          <div className="flex flex-col flex-shrink-0">
-            <span
-              className="text-xl xl:text-2xl font-black tracking-tight uppercase leading-none"
-              style={{
-                background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}
+          {/* Left Block: Mobile Menu & Logo */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            {/* Mobile Menu Icon */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 lg:hidden"
             >
-              Kirnya
-            </span>
-            <span
-              className="text-[8px] xl:text-[9px] font-bold uppercase tracking-[0.2em] mt-0.5"
-              style={{
-                background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}
-            >
-              FASHION BRAND
-            </span>
-          </div>
-        </Link>
+              <IoMenuOutline className="text-xl sm:text-2xl" />
+            </button>
 
-        {/* Desktop Category Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-xs xl:text-sm font-semibold flex-shrink-0 text-zinc-700 dark:text-zinc-300 mr-4">
-          {categories.slice(0, 5).map((cat) => (
-            <Link
-              key={cat.name}
-              href={cat.link}
-              className="whitespace-nowrap hover:text-black dark:hover:text-white transition-colors"
-            >
-              {cat.shortName || cat.name}
-            </Link>
-          ))}
-        </nav>
-
-        {/* SEARCH BAR */}
-        <div ref={searchRef} className="relative hidden md:block flex-1 max-w-xs xl:max-w-md mx-2">
-          <form onSubmit={handleSearchSubmit} className="relative">
-            <input
-              type="text"
-              placeholder="Search designer fashion..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setShowSuggestions(true)}
-              className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-4 pr-16 text-xs font-medium outline-none transition-all focus:border-zinc-400 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-700 dark:focus:bg-zinc-950 dark:text-white"
-            />
-            <div className="absolute right-2.5 top-1.5 flex gap-1.5 items-center">
-              <button
-                type="button"
-                onClick={startVoiceSearch}
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800 ${isListening ? "animate-ping text-red-500" : ""}`}
-              >
-                <IoMicOutline className="text-sm" />
-              </button>
-              <button
-                type="submit"
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-zinc-100"
-              >
-                <IoSearchOutline className="text-sm" />
-              </button>
-            </div>
-          </form>
-
-          {/* Search Suggestions Dropdown */}
-          <AnimatePresence>
-            {showSuggestions && suggestions.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute left-0 right-0 mt-2 rounded-2xl border border-zinc-100 bg-white p-3 shadow-xl dark:border-zinc-900 dark:bg-zinc-950"
-              >
-                <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase px-2 mb-2">Suggestions</p>
-                <div className="flex flex-col gap-1.5">
-                  {suggestions.map((prod) => (
-                    <Link
-                      key={prod._id}
-                      href={`/product/${prod._id}`}
-                      onClick={() => setShowSuggestions(false)}
-                      className="flex items-center gap-3 rounded-lg p-2 hover:bg-zinc-50 dark:hover:bg-zinc-900"
-                    >
-                      <div className="relative h-10 w-8 flex-shrink-0 overflow-hidden rounded-md">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={prod.images?.[0]} alt={prod.title} className="h-full w-full object-cover" />
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <h4 className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-200">{prod.title}</h4>
-                        <p className="text-[10px] text-zinc-500 font-medium">₹{prod.salePrice} | {prod.brand}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ACTIONS */}
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0 ml-2">
-
-          {/* Theme Switcher */}
-          <button
-            onClick={cycleTheme}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
-          >
-            {theme === "light" && <IoSunnyOutline className="text-xl" />}
-            {theme === "dark" && <IoMoonOutline className="text-xl" />}
-            {theme === "system" && <IoSettingsOutline className="text-xl" />}
-          </button>
-
-          {/* Wishlist Link */}
-          <Link
-            href="/wishlist"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
-          >
-            <IoHeartOutline className="text-xl" />
-            {wishlistItems.length > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                {wishlistItems.length}
-              </span>
-            )}
-          </Link>
-
-          {/* Cart Link */}
-          <Link
-            href="/cart"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
-          >
-            <IoBagOutline className="text-xl" />
-            {cartItems.length > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[9px] font-bold text-white dark:bg-white dark:text-black">
-                {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
-              </span>
-            )}
-          </Link>
-
-          {/* Profile Dropdown */}
-          <div ref={dropdownRef} className="relative">
-            {isAuthenticated ? (
-              <>
-                <button
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            {/* LOGO */}
+            <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Kirnya Logo" className="h-7 sm:h-9 xl:h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
+              <div className="flex flex-col flex-shrink-0">
+                <span
+                  className="text-base sm:text-xl xl:text-2xl font-black tracking-tight uppercase leading-none"
+                  style={{
+                    background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent"
+                  }}
                 >
-                  <span className="text-xs font-bold uppercase">{user?.name?.substring(0, 2)}</span>
-                </button>
-                <AnimatePresence>
-                  {isProfileDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-xl dark:border-zinc-900 dark:bg-zinc-950"
-                    >
-                      <div className="border-b border-zinc-100 p-3 dark:border-zinc-900">
-                        <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">{user?.name}</p>
-                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">{user?.email}</p>
-                        <span className="inline-block mt-1.5 rounded-full bg-zinc-100 px-2 py-0.5 text-[9px] font-bold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-                          {user?.role}
-                        </span>
-                      </div>
+                  Kirnya
+                </span>
+                <span
+                  className="text-[7px] sm:text-[8px] xl:text-[9px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] mt-0.5"
+                  style={{
+                    background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent"
+                  }}
+                >
+                  FASHION BRAND
+                </span>
+              </div>
+            </Link>
+          </div>
 
-                      <div className="flex flex-col gap-0.5 p-1">
-                        {/* Dynamic Dashboard routing for roles */}
-                        {["Admin", "Owner", "Super Admin"].includes(user?.role) && (
-                          <Link
-                            href="/admin"
-                            onClick={() => setIsProfileDropdownOpen(false)}
-                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                          >
-                            <IoSettingsOutline className="text-sm" /> Admin Panel
-                          </Link>
-                        )}
-                        {user?.role === "Owner" && (
-                          <Link
-                            href="/owner"
-                            onClick={() => setIsProfileDropdownOpen(false)}
-                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                          >
-                            <IoSettingsOutline className="text-sm" /> Owner Dashboard
-                          </Link>
-                        )}
-                        {user?.role === "Delivery Partner" && (
-                          <Link
-                            href="/delivery"
-                            onClick={() => setIsProfileDropdownOpen(false)}
-                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                          >
-                            <IoSettingsOutline className="text-sm" /> Delivery Panel
-                          </Link>
-                        )}
-
-                        <Link
-                          href="/profile"
-                          onClick={() => setIsProfileDropdownOpen(false)}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                        >
-                          <IoPersonOutline className="text-sm" /> My Profile & Orders
-                        </Link>
-                        <button
-                          onClick={handleLogout}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                        >
-                          <IoLogOutOutline className="text-sm" /> Sign Out
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </>
-            ) : (
+          {/* Desktop Category Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-xs xl:text-sm font-semibold flex-shrink-0 text-zinc-700 dark:text-zinc-300 mx-4">
+            {categories.slice(0, 5).map((cat) => (
               <Link
-                href="/auth"
-                className="flex h-10 items-center justify-center rounded-full bg-zinc-950 px-4 text-xs font-bold text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                key={cat.name}
+                href={cat.link}
+                className="whitespace-nowrap hover:text-black dark:hover:text-white transition-colors"
               >
-                Sign In
+                {cat.shortName || cat.name}
               </Link>
-            )}
+            ))}
+          </nav>
+
+          {/* SEARCH BAR (Desktop & Tablet) */}
+          <div ref={searchRef} className="relative hidden md:block flex-1 max-w-xs xl:max-w-md mx-2">
+            <form onSubmit={handleSearchSubmit} className="relative">
+              <input
+                type="text"
+                placeholder="Search designer fashion..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-4 pr-16 text-xs font-medium outline-none transition-all focus:border-zinc-400 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-700 dark:focus:bg-zinc-950 dark:text-white"
+              />
+              <div className="absolute right-2.5 top-1.5 flex gap-1.5 items-center">
+                <button
+                  type="button"
+                  onClick={startVoiceSearch}
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800 ${isListening ? "animate-ping text-red-500" : ""}`}
+                >
+                  <IoMicOutline className="text-sm" />
+                </button>
+                <button
+                  type="submit"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-zinc-100"
+                >
+                  <IoSearchOutline className="text-sm" />
+                </button>
+              </div>
+            </form>
+
+            {/* Search Suggestions Dropdown */}
+            <AnimatePresence>
+              {showSuggestions && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute left-0 right-0 mt-2 rounded-2xl border border-zinc-100 bg-white p-3 shadow-xl dark:border-zinc-900 dark:bg-zinc-950"
+                >
+                  <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase px-2 mb-2">Suggestions</p>
+                  <div className="flex flex-col gap-1.5">
+                    {suggestions.map((prod) => (
+                      <Link
+                        key={prod._id}
+                        href={`/product/${prod._id}`}
+                        onClick={() => setShowSuggestions(false)}
+                        className="flex items-center gap-3 rounded-lg p-2 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                      >
+                        <div className="relative h-10 w-8 flex-shrink-0 overflow-hidden rounded-md">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={prod.images?.[0]} alt={prod.title} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <h4 className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-200">{prod.title}</h4>
+                          <p className="text-[10px] text-zinc-500 font-medium">₹{prod.salePrice} | {prod.brand}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* ACTIONS */}
+          <div className="flex items-center gap-0.5 sm:gap-2.5 flex-shrink-0">
+
+            {/* Theme Switcher */}
+            <button
+              onClick={cycleTheme}
+              className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            >
+              {theme === "light" && <IoSunnyOutline className="text-lg sm:text-xl" />}
+              {theme === "dark" && <IoMoonOutline className="text-lg sm:text-xl" />}
+              {theme === "system" && <IoSettingsOutline className="text-lg sm:text-xl" />}
+            </button>
+
+            {/* Wishlist Link */}
+            <Link
+              href="/wishlist"
+              className="relative flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            >
+              <IoHeartOutline className="text-lg sm:text-xl" />
+              {wishlistItems.length > 0 && (
+                <span className="absolute top-1 right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-red-500 text-[8px] sm:text-[9px] font-bold text-white">
+                  {wishlistItems.length}
+                </span>
+              )}
+            </Link>
+
+            {/* Cart Link */}
+            <Link
+              href="/cart"
+              className="relative flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            >
+              <IoBagOutline className="text-lg sm:text-xl" />
+              {cartItems.length > 0 && (
+                <span className="absolute top-1 right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-black text-[8px] sm:text-[9px] font-bold text-white dark:bg-white dark:text-black">
+                  {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
+                </span>
+              )}
+            </Link>
+
+            {/* Profile Dropdown */}
+            <div ref={dropdownRef} className="relative">
+              {isAuthenticated ? (
+                <>
+                  <button
+                    onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                    className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                  >
+                    <span className="text-[10px] sm:text-xs font-bold uppercase">{user?.name?.substring(0, 2)}</span>
+                  </button>
+                  <AnimatePresence>
+                    {isProfileDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-xl dark:border-zinc-900 dark:bg-zinc-950"
+                      >
+                        <div className="border-b border-zinc-100 p-3 dark:border-zinc-900">
+                          <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">{user?.name}</p>
+                          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">{user?.email}</p>
+                          <span className="inline-block mt-1.5 rounded-full bg-zinc-100 px-2 py-0.5 text-[9px] font-bold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+                            {user?.role}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-0.5 p-1">
+                          {/* Dynamic Dashboard routing for roles */}
+                          {["Admin", "Owner", "Super Admin"].includes(user?.role) && (
+                            <Link
+                              href="/admin"
+                              onClick={() => setIsProfileDropdownOpen(false)}
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                            >
+                              <IoSettingsOutline className="text-sm" /> Admin Panel
+                            </Link>
+                          )}
+                          {user?.role === "Owner" && (
+                            <Link
+                              href="/owner"
+                              onClick={() => setIsProfileDropdownOpen(false)}
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                            >
+                              <IoSettingsOutline className="text-sm" /> Owner Dashboard
+                            </Link>
+                          )}
+                          {user?.role === "Delivery Partner" && (
+                            <Link
+                              href="/delivery"
+                              onClick={() => setIsProfileDropdownOpen(false)}
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                            >
+                              <IoSettingsOutline className="text-sm" /> Delivery Panel
+                            </Link>
+                          )}
+
+                          <Link
+                            href="/profile"
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                          >
+                            <IoPersonOutline className="text-sm" /> My Profile & Orders
+                          </Link>
+                          <button
+                            onClick={handleLogout}
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                          >
+                            <IoLogOutOutline className="text-sm" /> Sign Out
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              ) : (
+                <Link
+                  href="/auth"
+                  className="flex h-8 sm:h-10 items-center justify-center rounded-full bg-zinc-950 px-2.5 sm:px-4 text-[11px] sm:text-xs font-bold text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                >
+                  Sign In
+                </Link>
+              )}
+            </div>
           </div>
 
         </div>
-      </div>
-    </header>
+      </header>
 
     {/* MOBILE DRAWER */}
     <AnimatePresence>
