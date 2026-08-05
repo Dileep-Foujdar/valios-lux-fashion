@@ -49,7 +49,8 @@ const cartSlice = createSlice({
   initialState,
   reducers: {
     setCart: (state, action) => {
-      state.items = action.payload;
+      const items = action.payload || [];
+      state.items = items.filter(item => item && item.product !== null && item.product?._id);
       calculateTotalsHelper(state);
     },
     localAddToCart: (state, action) => {

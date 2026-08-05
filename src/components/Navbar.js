@@ -21,8 +21,8 @@ import {
 import toast from "react-hot-toast";
 
 import { clearCredentials } from "../store/slices/authSlice.js";
-import { clearCart } from "../store/slices/cartSlice.js";
-import { clearWishlist } from "../store/slices/wishlistSlice.js";
+import { clearCart, setCart } from "../store/slices/cartSlice.js";
+import { clearWishlist, setWishlist } from "../store/slices/wishlistSlice.js";
 import { updateThemePreference } from "../store/slices/settingsSlice.js";
 import api from "../utils/api.js";
 
@@ -67,6 +67,29 @@ const Navbar = () => {
       return () => mediaQuery.removeEventListener("change", handleChange);
     }
   }, [theme]);
+
+  // Sync user's saved DB cart and wishlist when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const syncUserDbData = async () => {
+        try {
+          const [profileRes, cartRes] = await Promise.all([
+            api.get("/users/profile"),
+            api.get("/users/cart")
+          ]);
+          if (profileRes.data?.success && profileRes.data?.user?.wishlist) {
+            dispatch(setWishlist(profileRes.data.user.wishlist));
+          }
+          if (cartRes.data?.success && cartRes.data?.cart) {
+            dispatch(setCart(cartRes.data.cart));
+          }
+        } catch (err) {
+          console.error("DB cart/wishlist sync error:", err);
+        }
+      };
+      syncUserDbData();
+    }
+  }, [isAuthenticated, dispatch]);
 
   // Sync search input with URL search query if exists
   useEffect(() => {
@@ -183,15 +206,14 @@ const Navbar = () => {
   };
 
   const categories = [
-    { name: "Men", link: "/search?category=Men" },
-    { name: "Women", link: "/search?category=Women" },
-    { name: "Kids", link: "/search?category=Kids" },
-    { name: "Shoes", link: "/search?category=Shoes" },
-    { name: "Watches", link: "/search?category=Watches" },
-    { name: "Accessories", link: "/search?category=Accessories" },
-    { name: "Bags", link: "/search?category=Bags" },
-    { name: "Jewellery", link: "/search?category=Jewellery" },
-    { name: "Beauty", link: "/search?category=Beauty" }
+    { name: "Dresses & Gowns", shortName: "Dresses", link: "/search?category=Dresses%20%26%20Gowns" },
+    { name: "Tops & Tees", shortName: "Tops & Tees", link: "/search?category=Tops%20%26%20Tees" },
+    { name: "Ethnic & Sarees", shortName: "Ethnic Wear", link: "/search?category=Ethnic%20%26%20Sarees" },
+    { name: "Bottoms & Jeans", shortName: "Bottoms", link: "/search?category=Bottoms%20%26%20Jeans" },
+    { name: "Jackets & Shrugs", shortName: "Jackets", link: "/search?category=Jackets%20%26%20Shrugs" },
+    { name: "Footwear & Heels", shortName: "Heels & Shoes", link: "/search?category=Footwear%20%26%20Heels" },
+    { name: "Bags & Accessories", shortName: "Bags & Accessories", link: "/search?category=Bags%20%26%20Accessories" },
+    { name: "Jewellery & Beauty", shortName: "Jewellery", link: "/search?category=Jewellery%20%26%20Beauty" }
   ];
 
   return (
@@ -208,26 +230,48 @@ const Navbar = () => {
         </button>
 
         {/* LOGO */}
-        <Link href="/" className="flex flex-col items-center">
-          <span className="text-2xl font-black tracking-tighter text-black dark:text-white uppercase leading-none">
-            VALOIS
-          </span>
-          <span className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-0.5">
-            LUX FASHION
-          </span>
+        <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0 mr-4 xl:mr-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Kirnya Logo" className="h-9 xl:h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
+          <div className="flex flex-col flex-shrink-0">
+            <span
+              className="text-xl xl:text-2xl font-black tracking-tight uppercase leading-none"
+              style={{
+                background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent"
+              }}
+            >
+              Kirnya
+            </span>
+            <span
+              className="text-[8px] xl:text-[9px] font-bold uppercase tracking-[0.2em] mt-0.5"
+              style={{
+                background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent"
+              }}
+            >
+              FASHION BRAND
+            </span>
+          </div>
         </Link>
 
         {/* Desktop Category Navigation Links */}
-        <nav className="hidden lg:flex gap-6 xl:gap-8 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+        <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-xs xl:text-sm font-semibold flex-shrink-0 text-zinc-700 dark:text-zinc-300 mr-4">
           {categories.slice(0, 5).map((cat) => (
-            <Link key={cat.name} href={cat.link} className="hover:text-black dark:hover:text-white transition-colors">
-              {cat.name}
+            <Link
+              key={cat.name}
+              href={cat.link}
+              className="whitespace-nowrap hover:text-black dark:hover:text-white transition-colors"
+            >
+              {cat.shortName || cat.name}
             </Link>
           ))}
         </nav>
 
         {/* SEARCH BAR */}
-        <div ref={searchRef} className="relative hidden md:block w-72 lg:w-80 xl:w-96">
+        <div ref={searchRef} className="relative hidden md:block flex-1 max-w-xs xl:max-w-md mx-2">
           <form onSubmit={handleSearchSubmit} className="relative">
             <input
               type="text"
@@ -289,7 +333,7 @@ const Navbar = () => {
         </div>
 
         {/* ACTIONS */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0 ml-2">
 
           {/* Theme Switcher */}
           <button
@@ -436,7 +480,32 @@ const Navbar = () => {
               className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col p-6 shadow-2xl mobile-drawer-bg"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xl font-bold uppercase tracking-tight text-black dark:text-white">VALOIS</span>
+                <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logo.png" alt="Kirnya Logo" className="h-8 w-auto object-contain" />
+                  <div className="flex flex-col">
+                    <span
+                      className="text-lg font-black uppercase tracking-tight leading-none"
+                      style={{
+                        background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent"
+                      }}
+                    >
+                      Kirnya
+                    </span>
+                    <span
+                      className="text-[8px] font-bold uppercase tracking-widest mt-0.5"
+                      style={{
+                        background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent"
+                      }}
+                    >
+                      FASHION BRAND
+                    </span>
+                  </div>
+                </Link>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"

@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import User from "../models/User.js";
 import { uploadImage } from "../config/cloudinary.js";
 
 // 1. Get All Products with Filters, Search, Sorting, and Pagination
@@ -37,14 +39,37 @@ export const getProducts = async (req, res, next) => {
       ];
     }
 
-    // Category Filter (works with Category ID or Category slug/name if we populate)
+    // Category Filter (works with Category ID, slug, exact name, or partial/regex match)
     if (category) {
-      // Find category by slug/name first
-      const categoryDoc = await Category.findOne({
-        $or: [{ slug: category.toLowerCase() }, { name: category }]
-      });
+      const decodedCategory = decodeURIComponent(category).trim();
+      const escaped = decodedCategory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      let categoryDoc = null;
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        categoryDoc = await Category.findById(category);
+      }
+
+      if (!categoryDoc) {
+        categoryDoc = await Category.findOne({
+          $or: [
+            { slug: category.toLowerCase() },
+            { slug: decodedCategory.toLowerCase() },
+            { name: new RegExp(`^${escaped}$`, "i") },
+            { name: new RegExp(escaped, "i") }
+          ]
+        });
+      }
+
+      if (!categoryDoc) {
+        categoryDoc = await Category.findOne({
+          subcategories: { $in: [new RegExp(escaped, "i")] }
+        });
+      }
+
       if (categoryDoc) {
         queryObj.category = categoryDoc._id;
+      } else {
+        queryObj.category = new mongoose.Types.ObjectId();
       }
     }
 
@@ -254,15 +279,28 @@ export const updateProduct = async (req, res, next) => {
 // 5. Delete Product (Admin/Owner)
 export const deleteProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const productId = req.params.id;
+    const product = await Product.findByIdAndDelete(productId);
 
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
+    // Automatically remove deleted product from ALL users' carts, wishlists, and likes in MongoDB!
+    await User.updateMany(
+      {},
+      {
+        $pull: {
+          cart: { product: productId },
+          wishlist: productId,
+          likes: productId
+        }
+      }
+    );
+
     res.status(200).json({
       success: true,
-      message: "Product deleted successfully"
+      message: "Product deleted successfully and purged from user carts & wishlists"
     });
   } catch (error) {
     next(error);

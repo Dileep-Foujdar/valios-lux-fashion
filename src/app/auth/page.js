@@ -10,6 +10,8 @@ import toast from "react-hot-toast";
 
 import api from "../../utils/api.js";
 import { setCredentials, setLoading } from "../../store/slices/authSlice.js";
+import { setCart } from "../../store/slices/cartSlice.js";
+import { setWishlist } from "../../store/slices/wishlistSlice.js";
 import Navbar from "../../components/Navbar.js";
 import Footer from "../../components/Footer.js";
 
@@ -81,6 +83,13 @@ const AuthPage = () => {
           refreshToken: res.data.refreshToken
         }));
 
+        if (res.data.user.cart) {
+          dispatch(setCart(res.data.user.cart));
+        }
+        if (res.data.user.wishlist) {
+          dispatch(setWishlist(res.data.user.wishlist));
+        }
+
         // Redirect based on role
         if (["Admin", "Owner", "Super Admin"].includes(res.data.user.role)) {
           router.push("/admin");
@@ -126,9 +135,18 @@ const AuthPage = () => {
           className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-8 shadow-xl dark:border-zinc-800 dark:bg-zinc-900/50 transition-colors"
         >
           {/* Header info */}
-          <div className="mb-8 text-center">
-            <h1 className="text-xl font-extrabold uppercase tracking-widest text-zinc-900 dark:text-white">
-              VALOIS Access Portal
+          <div className="mb-8 flex flex-col items-center text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Kirnya Logo" className="h-12 w-auto object-contain mb-3 rounded-md" />
+            <h1
+              className="text-xl font-black uppercase tracking-widest"
+              style={{
+                background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent"
+              }}
+            >
+              Kirnya Access Portal
             </h1>
             <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">
               Secure Passwordless Authentication
@@ -238,7 +256,7 @@ const AuthPage = () => {
 
           {/* Legal / Policy note */}
           <div className="mt-8 text-center text-[10px] text-zinc-400 dark:text-zinc-500 font-medium leading-relaxed">
-            By signing in, you agree to VALOIS&apos;s <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>. We do not distribute spam.
+            By signing in, you agree to Kirnya&apos;s <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>. We do not distribute spam.
           </div>
         </motion.div>
       </main>

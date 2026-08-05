@@ -9,7 +9,8 @@ const wishlistSlice = createSlice({
   initialState,
   reducers: {
     setWishlist: (state, action) => {
-      state.items = action.payload || [];
+      const items = action.payload || [];
+      state.items = items.filter(item => item !== null && item && item._id);
     },
     localToggleWishlist: (state, action) => {
       const product = action.payload;

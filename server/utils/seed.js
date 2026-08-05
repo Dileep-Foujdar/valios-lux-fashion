@@ -6,15 +6,81 @@ import Coupon from "../models/Coupon.js";
 import WebsiteSettings from "../models/WebsiteSettings.js";
 
 const categoriesData = [
-  { name: "Men", slug: "men", image: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=600&q=80", subcategories: ["Shirts", "T-Shirts", "Jeans", "Jackets", "Suits"] },
-  { name: "Women", slug: "women", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80", subcategories: ["Dresses", "Tops", "Jeans", "Ethnic Wear", "Cardigans"] },
-  { name: "Kids", slug: "kids", image: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=600&q=80", subcategories: ["T-Shirts", "Dresses", "Pants", "Toys"] },
-  { name: "Shoes", slug: "shoes", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80", subcategories: ["Sneakers", "Formal Shoes", "Boots", "Heels", "Sandals"] },
-  { name: "Accessories", slug: "accessories", image: "https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&w=600&q=80", subcategories: ["Belts", "Wallets", "Sunglasses", "Hats", "Scarves"] },
-  { name: "Watches", slug: "watches", image: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&w=600&q=80", subcategories: ["Analog", "Chronograph", "Smart Watches", "Luxury Watches"] },
-  { name: "Bags", slug: "bags", image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80", subcategories: ["Handbags", "Backpacks", "Clutches", "Luggage"] },
-  { name: "Jewellery", slug: "jewellery", image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=600&q=80", subcategories: ["Necklaces", "Earrings", "Rings", "Bracelets"] },
-  { name: "Beauty", slug: "beauty", image: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=600&q=80", subcategories: ["Skincare", "Makeup", "Fragrances", "Haircare"] }
+  { name: "Dresses & Gowns", slug: "dresses-gowns", image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=600&q=80", subcategories: ["Maxi Dresses", "Cocktail Dresses", "Bodycon Dresses", "Evening Gowns"] },
+  { name: "Tops & Tees", slug: "tops-tees", image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80", subcategories: ["Crop Tops", "Satin Blouses", "Casual Tees", "Shirts"] },
+  { name: "Ethnic & Sarees", slug: "ethnic-sarees", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80", subcategories: ["Designer Sarees", "Anarkali Sets", "Lehengas", "Kurta Sets"] },
+  { name: "Bottoms & Jeans", slug: "bottoms-jeans", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=600&q=80", subcategories: ["High-Waist Jeans", "Wide Leg Trousers", "Skirts", "Palazzos"] },
+  { name: "Jackets & Shrugs", slug: "jackets-shrugs", image: "https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80", subcategories: ["Blazers", "Leather Jackets", "Cardigans", "Denim Jackets"] },
+  { name: "Footwear & Heels", slug: "footwear-heels", image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=600&q=80", subcategories: ["Stiletto Heels", "Sandals", "Sneakers", "Flats"] },
+  { name: "Bags & Accessories", slug: "bags-accessories", image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80", subcategories: ["Handbags", "Clutches", "Tote Bags", "Sunglasses"] },
+  { name: "Jewellery & Beauty", slug: "jewellery-beauty", image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=600&q=80", subcategories: ["Necklaces", "Earring Sets", "Lipsticks", "Perfumes"] }
+];
+
+const womenProductsData = [
+  {
+    title: "Gucci Floral Silk Chiffon Maxi Dress",
+    description: "Elegant floor-length silk chiffon maxi dress with vibrant floral prints, delicate ruffle trims, and a cinched waistline.",
+    categoryName: "Dresses & Gowns", subcategory: "Maxi Dresses", brand: "Gucci", mrp: 4999, salePrice: 2999,
+    colors: ["Pastel Pink", "Floral White"], sizes: ["XS", "S", "M", "L"],
+    images: ["https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=600&q=80"],
+    featured: true, trending: true, bestSeller: true, rating: 4.9, reviewCount: 142
+  },
+  {
+    title: "Prada Velvet Evening Cocktail Bodycon Dress",
+    description: "Sophisticated black velvet bodycon dress featuring a sweetheart neckline and side slit silhouette.",
+    categoryName: "Dresses & Gowns", subcategory: "Cocktail Dresses", brand: "Prada", mrp: 5999, salePrice: 3499,
+    colors: ["Classic Black", "Emerald Green"], sizes: ["S", "M", "L"],
+    images: ["https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=600&q=80"],
+    featured: true, trending: true, bestSeller: false, rating: 4.8, reviewCount: 98
+  },
+  {
+    title: "Mango Silk Satin Button-Down Blouse",
+    description: "Luxurious silk-touch satin blouse featuring a relaxed fit, spread collar, and mother-of-pearl buttons.",
+    categoryName: "Tops & Tees", subcategory: "Satin Blouses", brand: "Mango", mrp: 2499, salePrice: 1399,
+    colors: ["Ivory White", "Lavender"], sizes: ["XS", "S", "M", "L"],
+    images: ["https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80"],
+    featured: true, trending: false, bestSeller: true, rating: 4.6, reviewCount: 110
+  },
+  {
+    title: "Tanishq Designer Organza Floral Saree with Blouse",
+    description: "Breathtaking pastel pink organza saree decorated with delicate floral hand-embroidery.",
+    categoryName: "Ethnic & Sarees", subcategory: "Designer Sarees", brand: "Tanishq", mrp: 7999, salePrice: 4499,
+    colors: ["Blush Pink", "Mint Green"], sizes: ["Free Size"],
+    images: ["https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80"],
+    featured: true, trending: true, bestSeller: true, rating: 4.9, reviewCount: 215
+  },
+  {
+    title: "Levi's High-Waisted Flare Denim Jeans",
+    description: "Iconic high-waisted vintage denim jeans with an elongated bootcut flare hem.",
+    categoryName: "Bottoms & Jeans", subcategory: "High-Waist Jeans", brand: "Levi's", mrp: 3499, salePrice: 2199,
+    colors: ["Indigo Blue", "Washed Black"], sizes: ["26", "28", "30", "32"],
+    images: ["https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=600&q=80"],
+    featured: false, trending: true, bestSeller: true, rating: 4.7, reviewCount: 156
+  },
+  {
+    title: "Tommy Hilfiger Tailored Double-Breasted Blazer",
+    description: "Structured double-breasted blazer featuring sharp lapels and engraved gold crest buttons.",
+    categoryName: "Jackets & Shrugs", subcategory: "Blazers", brand: "Tommy Hilfiger", mrp: 5499, salePrice: 3299,
+    colors: ["Navy Blue", "Camel Brown"], sizes: ["S", "M", "L"],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80"],
+    featured: true, trending: true, bestSeller: false, rating: 4.8, reviewCount: 77
+  },
+  {
+    title: "Aldo Satin Strappy Stiletto Pumps",
+    description: "Glamorous 4-inch stiletto pumps wrapped in glossy satin with delicate ankle straps.",
+    categoryName: "Footwear & Heels", subcategory: "Stiletto Heels", brand: "Aldo", mrp: 4299, salePrice: 2499,
+    colors: ["Nude Beige", "Ruby Red"], sizes: ["UK 4", "UK 5", "UK 6", "UK 7"],
+    images: ["https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=600&q=80"],
+    featured: true, trending: true, bestSeller: true, rating: 4.8, reviewCount: 112
+  },
+  {
+    title: "Michael Kors Quilted Leather Chain Shoulder Bag",
+    description: "Iconic quilted lambskin shoulder bag decorated with gold-tone hardware and chain strap.",
+    categoryName: "Bags & Accessories", subcategory: "Handbags", brand: "Michael Kors", mrp: 6999, salePrice: 4199,
+    colors: ["Classic Black", "Blush Cream"], sizes: ["One Size"],
+    images: ["https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80"],
+    featured: true, trending: true, bestSeller: true, rating: 4.9, reviewCount: 204
+  }
 ];
 
 const generateProducts = (categoriesMap) => {
@@ -272,6 +338,14 @@ export const seedDatabase = async (force = false) => {
       expiry.setMonth(expiry.getMonth() + 6); // Valid for 6 months
 
       await Coupon.insertMany([
+        {
+          code: "KIRNYANEW",
+          discountType: "Percentage",
+          value: 20,
+          minPurchase: 1499,
+          maxDiscount: 500,
+          expiryDate: expiry
+        },
         {
           code: "VALOISNEW",
           discountType: "Percentage",

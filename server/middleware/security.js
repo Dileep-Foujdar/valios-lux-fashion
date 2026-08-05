@@ -91,13 +91,10 @@ export const sanitizeMongoQueries = (req, res, next) => {
 // Custom XSS Sanitizer
 export const sanitizeXSS = (req, res, next) => {
   const cleanString = (str) => {
+    // Only escape HTML tag opening/closing brackets to prevent script injection without corrupting URLs or category names
     return str
-      .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#x27;")
-      .replace(/\//g, "&#x2F;");
+      .replace(/>/g, "&gt;");
   };
 
   const sanitizeValue = (val) => {
@@ -112,8 +109,6 @@ export const sanitizeXSS = (req, res, next) => {
     return val;
   };
 
-  req.body = sanitizeValue(req.body);
-  req.query = sanitizeValue(req.query);
-  req.params = sanitizeValue(req.params);
+  if (req.body) req.body = sanitizeValue(req.body);
   next();
 };

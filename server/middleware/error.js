@@ -1,12 +1,11 @@
 // Global Error Handler Middleware
 export const errorHandler = (err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal Server Error";
-
-  console.error("> Error Details:", {
-    message: err.message,
-    stack: process.env.NODE_ENV === "development" ? err.stack : undefined
-  });
 
   // Handle Mongoose Bad ObjectId (Cast Error)
   if (err.name === "CastError") {
@@ -16,13 +15,13 @@ export const errorHandler = (err, req, res, next) => {
 
   // Handle Mongoose Validation Error
   if (err.name === "ValidationError") {
-    message = Object.values(err.errors).map((value) => value.message).join(", ");
+    message = Object.values(err.errors ? err.errors : {}).map((value) => value.message).join(", ") || message;
     statusCode = 400;
   }
 
   // Handle Mongoose Duplicate Key Error
   if (err.code === 11000) {
-    const fields = Object.keys(err.keyValue).join(", ");
+    const fields = err.keyValue ? Object.keys(err.keyValue).join(", ") : "field";
     message = `Duplicate value entered for field(s): ${fields}`;
     statusCode = 400;
   }
@@ -38,9 +37,15 @@ export const errorHandler = (err, req, res, next) => {
     statusCode = 401;
   }
 
+  // Clean, concise 1-line logging without node_modules stack trace clutter
+  if (statusCode >= 500) {
+    console.error(`[SERVER ERROR ${statusCode}] ${req.method} ${req.originalUrl}:`, err.message);
+  } else {
+    console.warn(`[API NOTICE ${statusCode}] ${req.method} ${req.originalUrl}: ${message}`);
+  }
+
   res.status(statusCode).json({
     success: false,
-    message,
-    stack: process.env.NODE_ENV === "development" ? err.stack : undefined
+    message
   });
 };

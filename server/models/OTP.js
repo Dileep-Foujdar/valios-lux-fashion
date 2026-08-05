@@ -5,6 +5,7 @@ const OTPSchema = new mongoose.Schema({
   code: { type: String, required: true },
   expiresAt: { type: Date, required: true },
   verified: { type: Boolean, default: false },
+  isUsed: { type: Boolean, default: false },
   attempts: { type: Number, default: 0, max: 5 } // Max 5 verification attempts
 }, { timestamps: true });
 

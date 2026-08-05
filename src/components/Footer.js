@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 
 const Footer = () => {
   const footerDetails = useSelector((state) => state.settings.footerDetails) || {
-    contactEmail: "support@valois.com",
+    contactEmail: "support@kirnya.com",
     contactPhone: "+91 9999999999",
     address: "123 Fashion St, Mumbai, India"
   };
@@ -18,7 +18,7 @@ const Footer = () => {
   const handleSubscribe = (e) => {
     e.preventDefault();
     if (newsletterEmail.trim() && newsletterEmail.includes("@")) {
-      toast.success("Successfully subscribed to Valois Newsletter! Check your inbox.");
+      toast.success("Successfully subscribed to Kirnya Newsletter! Check your inbox.");
       setNewsletterEmail("");
     } else {
       toast.error("Please enter a valid email address.");
@@ -33,12 +33,34 @@ const Footer = () => {
           
           {/* Brand Col */}
           <div className="flex flex-col gap-4">
-            <div>
-              <span className="text-xl font-black text-black dark:text-white uppercase leading-none">VALOIS</span>
-              <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-0.5">LUXURY STORE</p>
-            </div>
+            <Link href="/" className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Kirnya Logo" className="h-9 w-auto object-contain rounded-md" />
+              <div className="flex flex-col">
+                <span
+                  className="text-xl font-black tracking-tight uppercase leading-none"
+                  style={{
+                    background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent"
+                  }}
+                >
+                  Kirnya
+                </span>
+                <span
+                  className="text-[9px] font-bold uppercase tracking-[0.2em] mt-0.5"
+                  style={{
+                    background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent"
+                  }}
+                >
+                  FASHION BRAND
+                </span>
+              </div>
+            </Link>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
-              Discover curated luxury apparel and accessories selected from the world&apos;s finest design houses. Redefining modern apparel collections.
+              Discover curated luxury apparel and accessories selected from Kirnya&apos;s finest design collections. Redefining modern fashion.
             </p>
             <div className="flex gap-4 mt-2 text-lg text-zinc-400 dark:text-zinc-500">
               <a href="#" className="hover:text-black dark:hover:text-white transition-colors"><IoLogoFacebook /></a>
@@ -51,11 +73,11 @@ const Footer = () => {
           <div>
             <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-widest mb-4">Categories</h4>
             <div className="flex flex-col gap-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              <Link href="/search?category=Men" className="hover:text-black dark:hover:text-white transition-colors">Men&apos;s Apparel</Link>
-              <Link href="/search?category=Women" className="hover:text-black dark:hover:text-white transition-colors">Women&apos;s Collection</Link>
-              <Link href="/search?category=Shoes" className="hover:text-black dark:hover:text-white transition-colors">Premium Footwear</Link>
-              <Link href="/search?category=Watches" className="hover:text-black dark:hover:text-white transition-colors">Luxury Watches</Link>
-              <Link href="/search?category=Beauty" className="hover:text-black dark:hover:text-white transition-colors">Cosmetics & Beauty</Link>
+              <Link href="/search?category=Dresses%20%26%20Gowns" className="hover:text-black dark:hover:text-white transition-colors">Dresses & Gowns</Link>
+              <Link href="/search?category=Tops%20%26%20Tees" className="hover:text-black dark:hover:text-white transition-colors">Tops & Satin Blouses</Link>
+              <Link href="/search?category=Ethnic%20%26%20Sarees" className="hover:text-black dark:hover:text-white transition-colors">Designer Sarees & Lehengas</Link>
+              <Link href="/search?category=Footwear%20%26%20Heels" className="hover:text-black dark:hover:text-white transition-colors">Stilettos & Heels</Link>
+              <Link href="/search?category=Bags%20%26%20Accessories" className="hover:text-black dark:hover:text-white transition-colors">Luxury Handbags</Link>
             </div>
           </div>
 
@@ -80,7 +102,7 @@ const Footer = () => {
           <div>
             <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-widest mb-4">Newsletter</h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4">
-              Sign up to receive early sale notifications, new arrivals catalogs, and luxury trend updates.
+              Sign up to receive early sale notifications, new arrivals catalogs, and fashion trend updates from Kirnya.
             </p>
             <form onSubmit={handleSubscribe} className="relative flex items-center">
               <input
@@ -104,7 +126,7 @@ const Footer = () => {
         <hr className="border-zinc-100 my-10 dark:border-zinc-900" />
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
-          <p>&copy; {new Date().getFullYear()} VALOIS Luxury Fashion. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Kirnya Fashion Brand. All rights reserved.</p>
           <div className="flex gap-4">
             <a href="#" className="hover:underline">Privacy Policy</a>
             <a href="#" className="hover:underline">Terms of Service</a>

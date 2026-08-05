@@ -1,16 +1,18 @@
 import nodemailer from "nodemailer";
 import WebsiteSettings from "../models/WebsiteSettings.js";
 
-// Helper to get transporter dynamically from environment or Database settings
+let cachedTestTransporter = null;
+
+// Helper to get transporter dynamically from environment, DB settings, or automatic Ethereal SMTP test account
 const getTransporter = async () => {
-  let host = process.env.SMTP_HOST;
-  let port = parseInt(process.env.SMTP_PORT || "587");
-  let user = process.env.SMTP_USER;
-  let pass = process.env.SMTP_PASS;
+  let host = process.env.EMAIL_HOST || process.env.SMTP_HOST;
+  let port = parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || "587");
+  let user = process.env.EMAIL_USER || process.env.SMTP_USER;
+  let pass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
 
   try {
     const settings = await WebsiteSettings.findOne();
-    if (settings && settings.smtp && settings.smtp.host && settings.smtp.user) {
+    if (settings && settings.smtp && settings.smtp.host && settings.smtp.user && settings.smtp.pass) {
       host = settings.smtp.host;
       port = settings.smtp.port;
       user = settings.smtp.user;
@@ -20,53 +22,57 @@ const getTransporter = async () => {
     // Fall back to env variables if DB query fails
   }
 
-  if (!host || !user) {
-    // If not configured, return null for mock mode
-    return null;
+  // Use configured SMTP server if credentials are specified in .env or DB
+  if (host && user && pass) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465, // true for 465, false for other ports
+      auth: {
+        user,
+        pass
+      }
+    });
   }
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465, // true for 465, false for other ports
-    auth: {
-      user,
-      pass
+  // Fallback to real Ethereal SMTP test transport if EMAIL_USER / EMAIL_PASS are not filled in .env
+  if (!cachedTestTransporter) {
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      cachedTestTransporter = nodemailer.createTransport({
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+    } catch (testErr) {
+      return null;
     }
-  });
+  }
+
+  return cachedTestTransporter;
 };
 
 export const sendEmail = async ({ to, subject, html, text }) => {
-  try {
-    const transporter = await getTransporter();
-    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@fashionstore.com";
+  const transporter = await getTransporter();
+  const fromEmail = process.env.EMAIL_USER || process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@valoisfashion.com";
 
-    console.log(`[Email Debug] dispatching email targeting recipient: "${to}" for subject: "${subject}"`);
-
-    if (!transporter) {
-      console.log(`\n--- [MOCK EMAIL SENT] ---`);
-      console.log(`To: ${to}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`Content (Text): ${text || "HTML only"}`);
-      console.log(`-------------------------\n`);
-      return { messageId: "mock-id-" + Date.now() };
-    }
-
-    const info = await transporter.sendMail({
-      from: `"VALOIS Lux Fashion" <${fromEmail}>`,
-      to,
-      subject,
-      text: text || "Please enable HTML view to read this mail.",
-      html
-    });
-
-    console.log(`> Email sent to ${to}: ${info.messageId}`);
-    return info;
-  } catch (error) {
-    console.error(`> Email sending error to ${to}:`, error.message);
-    // Return dummy data instead of crashing in mock/dev mode
-    return { error: error.message };
+  if (!transporter) {
+    throw new Error("Email service is unavailable. Please configure EMAIL_HOST, EMAIL_PORT, EMAIL_USER, and EMAIL_PASS in environment variables.");
   }
+
+  const info = await transporter.sendMail({
+    from: `"Kirnya Fashion Brand" <${fromEmail}>`,
+    to,
+    subject,
+    text: text || "Please enable HTML view to read this mail.",
+    html
+  });
+
+  return info;
 };
 
 // Ready-to-use premium HTML templates
@@ -74,8 +80,8 @@ export const emailTemplates = {
   otp: (otpCode) => `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #0f172a; text-transform: uppercase;">VALOIS</h1>
-        <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Luxury E-Commerce</p>
+        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #0f172a; text-transform: uppercase;">KIRNYA</h1>
+        <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Fashion Brand</p>
       </div>
       <div style="background-color: #f8fafc; border-radius: 8px; padding: 30px; text-align: center; margin-bottom: 30px;">
         <p style="font-size: 16px; color: #475569; margin-top: 0;">Use the following verification code to access your account:</p>
