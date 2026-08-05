@@ -69,7 +69,7 @@ export const processStripePayment = async (req, res, next) => {
           price_data: {
             currency: "inr",
             product_data: {
-              name: `VALOIS Fashion Order #${order.orderNumber}`,
+              name: `Kirnya Fashion Order #${order.orderNumber}`,
               description: order.items.map(i => i.product.title).join(", ")
             },
             unit_amount: amountInCents

@@ -188,7 +188,7 @@ const CheckoutPage = () => {
                 key: keyId,
                 amount,
                 currency,
-                name: "VALOIS Luxury Store",
+                name: "Kirnya Fashion Brand",
                 description: `Checkout Order #${order.orderNumber}`,
                 order_id: rzpOrderId,
                 handler: async (response) => {

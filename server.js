@@ -52,14 +52,14 @@ nextApp.prepare().then(() => {
     next();
   });
 
-  // Apply Security Middlewares
+  // Apply Security Middlewares to API routes
   app.use(configureHelmet());
   app.use(configureCors());
   app.use(express.json({ limit: "15mb" })); // Increase limit for base64 uploads
   app.use(express.urlencoded({ extended: true, limit: "15mb" }));
   app.use(cookieParser());
-  app.use(sanitizeMongoQueries);
-  app.use(sanitizeXSS);
+  app.use("/api", sanitizeMongoQueries);
+  app.use("/api", sanitizeXSS);
 
   // Serve uploads directory publicly
   app.use("/uploads", express.static("public/uploads"));

@@ -49,28 +49,30 @@ export const requestOTP = async (req, res, next) => {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
 
-    // Save/Update OTP in database
+    // Save/Update OTP in database with used/unused status and 5 min expiry
     await OTP.findOneAndUpdate(
       { destination },
-      { code: otpCode, expiresAt, verified: false, attempts: 0 },
+      { code: otpCode, expiresAt, verified: false, isUsed: false, attempts: 0 },
       { upsert: true, new: true }
     );
 
-    // Check if channel is using mock setup
-    const isMockEmail = !process.env.SMTP_HOST || !process.env.SMTP_USER;
-    const isMockSms = !process.env.TWILIO_ACCOUNT_SID || process.env.TWILIO_ACCOUNT_SID === "mock_sid" || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_FROM_NUMBER;
-    const isMock = isEmail ? isMockEmail : isMockSms;
-
-    // Send OTP via appropriate channel
+    // Send OTP via real Nodemailer email or SMS
     if (isEmail) {
       const emailHtml = emailTemplates.otp(otpCode);
-      const emailText = `Your VALOIS verification code is: ${otpCode}. Valid for 5 minutes.`;
-      await sendEmail({
-        to: destination,
-        subject: "Your VALOIS Verification Code",
-        html: emailHtml,
-        text: emailText
-      });
+      const emailText = `Your Kirnya verification code is: ${otpCode}. Valid for 5 minutes.`;
+      try {
+        await sendEmail({
+          to: destination,
+          subject: "Your Kirnya Verification Code",
+          html: emailHtml,
+          text: emailText
+        });
+      } catch (emailErr) {
+        return res.status(400).json({
+          success: false,
+          message: `Email delivery failed: ${emailErr.message}`
+        });
+      }
     } else {
       const smsText = smsTemplates.otp(otpCode);
       await sendSMS({
@@ -81,8 +83,7 @@ export const requestOTP = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: `OTP sent successfully to ${destination}` + (isMock ? ` (Mock OTP: ${otpCode})` : ""),
-      otp: isMock ? otpCode : undefined
+      message: `OTP sent successfully to ${destination}`
     });
   } catch (error) {
     next(error);
@@ -107,28 +108,34 @@ export const verifyOTP = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "No OTP request found for this destination" });
     }
 
-    // Check if expired
+    // Check if OTP was already used
+    if (otpRecord.isUsed) {
+      return res.status(400).json({ success: false, message: "This OTP has already been used. Please request a new one." });
+    }
+
+    // Check if expired (5 minutes window)
     if (otpRecord.expiresAt < new Date()) {
       return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
     }
 
-    // Check attempts
+    // Check attempts (max 5)
     if (otpRecord.attempts >= 5) {
       return res.status(400).json({ success: false, message: "Too many failed attempts. Please request a new OTP." });
     }
 
     // Check code match
-    if (otpRecord.code !== code) {
+    if (otpRecord.code !== code.toString().trim()) {
       otpRecord.attempts += 1;
       await otpRecord.save();
       return res.status(400).json({
         success: false,
-        message: `Invalid OTP. ${5 - otpRecord.attempts} attempts remaining.`
+        message: `Invalid OTP code. ${5 - otpRecord.attempts} attempts remaining.`
       });
     }
 
-    // Mark OTP as verified
+    // Mark OTP as verified and used
     otpRecord.verified = true;
+    otpRecord.isUsed = true;
     await otpRecord.save();
 
     // Check if user exists, if not auto-register them as Customer
@@ -154,15 +161,20 @@ export const verifyOTP = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Your account is deactivated. Please contact support." });
     }
 
-    // Generate tokens
+    // Generate JWT access and refresh tokens
     const { accessToken, refreshToken } = generateTokens(user);
 
-    // Set cookies
+    // Set HTTP-only cookies
     res.cookie("token", accessToken, getCookieOptions(1)); // 1 day access
     res.cookie("refreshToken", refreshToken, getCookieOptions(7)); // 7 days refresh
 
-    // Delete OTP record since it is verified and used
+    // Delete verified OTP record after completing login
     await OTP.deleteOne({ destination });
+
+    // Fetch populated user data for cart and wishlist
+    const populatedUser = await User.findById(user._id)
+      .populate("cart.product", "title images salePrice mrp stock brand")
+      .populate("wishlist", "title images salePrice mrp stock brand");
 
     res.status(200).json({
       success: true,
@@ -176,7 +188,9 @@ export const verifyOTP = async (req, res, next) => {
         mobile: user.mobile,
         role: user.role,
         walletBalance: user.walletBalance,
-        referralCode: user.referralCode
+        referralCode: user.referralCode,
+        cart: populatedUser.cart || [],
+        wishlist: populatedUser.wishlist || []
       }
     });
   } catch (error) {

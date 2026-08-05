@@ -4,7 +4,36 @@ import Product from "../models/Product.js";
 // 1. Get User Profile (req.user populated by auth middleware)
 export const getProfile = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).populate("wishlist", "title images salePrice mrp brand stock");
+    const user = await User.findById(req.user._id)
+      .populate("wishlist", "title images salePrice mrp brand stock")
+      .populate("cart.product", "title images salePrice mrp stock brand");
+
+    // Purge any deleted products from wishlist & cart
+    let needsSave = false;
+    if (user.wishlist) {
+      const origCount = user.wishlist.length;
+      user.wishlist = user.wishlist.filter(w => w !== null && w && w._id);
+      if (user.wishlist.length !== origCount) needsSave = true;
+    }
+
+    if (user.cart) {
+      const origCount = user.cart.length;
+      user.cart = user.cart.filter(c => c && c.product !== null && c.product?._id);
+      if (user.cart.length !== origCount) needsSave = true;
+    }
+
+    if (needsSave) {
+      const dbUser = await User.findById(req.user._id);
+      dbUser.wishlist = user.wishlist.map(w => w._id);
+      dbUser.cart = user.cart.map(c => ({
+        product: c.product._id,
+        quantity: c.quantity,
+        color: c.color,
+        size: c.size
+      }));
+      await dbUser.save();
+    }
+
     res.status(200).json({ success: true, user });
   } catch (error) {
     next(error);
@@ -109,6 +138,23 @@ export const deleteAddress = async (req, res, next) => {
 export const getCart = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).populate("cart.product", "title images salePrice mrp stock brand");
+    
+    // Purge any deleted products from cart
+    const origCount = user.cart.length;
+    const validCart = user.cart.filter(c => c && c.product !== null && c.product?._id);
+
+    if (validCart.length !== origCount) {
+      const dbUser = await User.findById(req.user._id);
+      dbUser.cart = validCart.map(c => ({
+        product: c.product._id,
+        quantity: c.quantity,
+        color: c.color,
+        size: c.size
+      }));
+      await dbUser.save();
+      user.cart = validCart;
+    }
+
     res.status(200).json({
       success: true,
       cart: user.cart
@@ -195,7 +241,11 @@ export const updateCartItem = async (req, res, next) => {
 export const toggleWishlist = async (req, res, next) => {
   try {
     const { productId } = req.body;
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "Product ID is required" });
+    }
     const user = await User.findById(req.user._id);
+    if (!user.wishlist) user.wishlist = [];
 
     const wishIndex = user.wishlist.indexOf(productId);
     let message = "";
@@ -224,7 +274,11 @@ export const toggleWishlist = async (req, res, next) => {
 export const toggleLike = async (req, res, next) => {
   try {
     const { productId } = req.body;
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "Product ID is required" });
+    }
     const user = await User.findById(req.user._id);
+    if (!user.likes) user.likes = [];
 
     const likeIndex = user.likes.indexOf(productId);
     let message = "";

@@ -18,19 +18,40 @@ export default function Home() {
   const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [faqOpen, setFaqOpen] = useState(null);
+  const [selectedTab, setSelectedTab] = useState("Dresses & Gowns");
+  const [tabProducts, setTabProducts] = useState([]);
+  const [tabLoading, setTabLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchTabProducts = async () => {
+      setTabLoading(true);
+      try {
+        const url = `/products?category=${encodeURIComponent(selectedTab)}&limit=8`;
+        const res = await api.get(url);
+        if (res.data.success) {
+          setTabProducts(res.data.products);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setTabLoading(false);
+      }
+    };
+    fetchTabProducts();
+  }, [selectedTab]);
 
   const heroSlider = [
     {
       image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1600&q=80",
-      title: "Summer Haute Couture",
-      subtitle: "Exclusive 50% Off On Selected Designer Wear",
-      link: "/search?category=Women"
+      title: "Kirnya Women Haute Couture",
+      subtitle: "Exclusive 50% Off On Selected Designer Dresses & Gowns",
+      link: "/search?category=Dresses%20%26%20Gowns"
     },
     {
       image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1600&q=80",
-      title: "Dapper Classics For Men",
-      subtitle: "Redefine Your Wardrobe Staples With Premium Materials",
-      link: "/search?category=Men"
+      title: "Royal Designer Ethnic Collection",
+      subtitle: "Hand-Crafted Sarees, Lehengas & Anarkali Suits",
+      link: "/search?category=Ethnic%20%26%20Sarees"
     }
   ];
 
@@ -106,7 +127,7 @@ export default function Home() {
                 transition={{ delay: 0.2 }}
                 className="text-xs font-bold uppercase tracking-widest text-zinc-300"
               >
-                VALOIS LUXURY FASHION
+                KIRNYA FASHION BRAND
               </motion.span>
               <motion.h1
                 initial={{ y: 30, opacity: 0 }}
@@ -187,6 +208,57 @@ export default function Home() {
                   </span>
                 </Link>
               ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 2.5 CATEGORY SHOWCASE TABS */}
+      <section className="py-12 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-900 transition-colors">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-8">
+            <div>
+              <h2 className="text-2xl font-black uppercase tracking-wider text-zinc-900 dark:text-white flex items-center gap-2">
+                <IoSparklesOutline className="text-amber-500" /> Category Showcase
+              </h2>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">
+                Browse fine women&apos;s apparel category by category
+              </p>
+            </div>
+            <Link
+              href={`/search?category=${encodeURIComponent(selectedTab)}`}
+              className="text-xs font-extrabold text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white uppercase tracking-wider flex items-center gap-1"
+            >
+              View Full {selectedTab} Collection <IoChevronForwardOutline />
+            </Link>
+          </div>
+
+          {/* Category Pills */}
+          <div className="flex gap-2 overflow-x-auto pb-4 mb-8 scrollbar-none snap-x border-b border-zinc-200/60 dark:border-zinc-800">
+            {categories.map((cat) => {
+              const isSelected = selectedTab === cat.name;
+              return (
+                <button
+                  key={cat._id}
+                  onClick={() => setSelectedTab(cat.name)}
+                  className={`whitespace-nowrap rounded-full px-5 py-2.5 text-xs font-extrabold uppercase transition-all ${isSelected ? "bg-black text-white dark:bg-white dark:text-black shadow-md" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400"}`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tab Products Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {tabLoading ? (
+              Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
+            ) : tabProducts.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-xs font-semibold text-zinc-400">
+                No items currently listed under this category.
+              </div>
+            ) : (
+              tabProducts.map((prod) => <ProductCard key={prod._id} product={prod} />)
             )}
           </div>
         </div>
@@ -313,7 +385,7 @@ export default function Home() {
         <div className="mx-auto max-w-3xl px-4">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-black uppercase tracking-wider text-zinc-900 dark:text-white">Frequently Asked Questions</h2>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">Everything you need to know about the Valois shopping experience</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">Everything you need to know about the Kirnya shopping experience</p>
           </div>
 
           <div className="flex flex-col gap-4">

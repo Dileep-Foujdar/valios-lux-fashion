@@ -2,14 +2,17 @@ import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   theme: "system",
+  brandName: "Kirnya Fashion Brand",
+  logoUrl: "/logo.png",
+  faviconUrl: "/favicon.ico",
   seo: {
-    title: "VALOIS Luxury Fashion",
-    metaDescription: "Experience luxury fashion shopping with fast shipping and secure payments."
+    title: "Kirnya | Premium Fashion Brand",
+    metaDescription: "Experience Kirnya luxury fashion clothing, shoes, watches, and accessories."
   },
   bannerImages: [],
   heroSlider: [],
   footerDetails: {
-    contactEmail: "support@valois.com",
+    contactEmail: "support@kirnya.com",
     contactPhone: "+91 9999999999",
     address: "123 Fashion St, Mumbai, India"
   },

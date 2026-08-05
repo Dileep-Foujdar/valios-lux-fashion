@@ -23,15 +23,20 @@ const SearchPage = () => {
   // Filter States
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
-  const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get("subcategory") || "");
-  const [selectedBrands, setSelectedBrands] = useState(searchParams.get("brand") || "");
-  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
-  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
-  const [selectedColor, setSelectedColor] = useState(searchParams.get("color") || "");
-  const [selectedSize, setSelectedSize] = useState(searchParams.get("size") || "");
-  const [selectedSort, setSelectedSort] = useState(searchParams.get("sort") || "newest");
+  // Derived filter state directly from URL searchParams (No cascading re-renders)
+  const selectedCategory = searchParams.get("category") || "";
+  const selectedSubcategory = searchParams.get("subcategory") || "";
+  const selectedBrands = searchParams.get("brand") || "";
+  const selectedColor = searchParams.get("color") || "";
+  const selectedSize = searchParams.get("size") || "";
+  const selectedSort = searchParams.get("sort") || "newest";
+
+  // Price inputs state
+  const [minPriceInput, setMinPriceInput] = useState(searchParams.get("minPrice") || "");
+  const [maxPriceInput, setMaxPriceInput] = useState(searchParams.get("maxPrice") || "");
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const minPrice = searchParams.get("minPrice") || "";
+  const maxPrice = searchParams.get("maxPrice") || "";
 
   // Colors & Sizes options
   const colorOptions = ["Black", "White", "Navy Blue", "Red", "Olive Green", "Beige", "Charcoal Grey", "Silver", "Gold"];
@@ -59,8 +64,8 @@ const SearchPage = () => {
       setLoading(true);
       try {
         const query = new URLSearchParams(searchParams.toString());
-        if (!query.has("page")) query.set("page", currentPage.toString());
-        if (!query.has("limit")) query.set("limit", "8");
+        if (!query.has("page")) query.set("page", "1");
+        if (!query.has("limit")) query.set("limit", "50");
 
         const res = await api.get(`/products?${query.toString()}`);
         if (res.data.success) {
@@ -77,33 +82,31 @@ const SearchPage = () => {
     fetchProducts();
   }, [searchParams, currentPage]);
 
-  // Apply filters by pushing new query params to URL
+  // Update query params helper
   const applyFilters = (newSort = selectedSort, newPage = 1) => {
-    const query = new URLSearchParams();
+    const query = new URLSearchParams(searchParams.toString());
     
-    const searchVal = searchParams.get("search");
-    if (searchVal) query.set("search", searchVal);
+    if (minPriceInput) query.set("minPrice", minPriceInput);
+    else query.delete("minPrice");
 
-    if (selectedCategory) query.set("category", selectedCategory);
-    if (selectedSubcategory) query.set("subcategory", selectedSubcategory);
-    if (selectedBrands) query.set("brand", selectedBrands);
-    if (minPrice) query.set("minPrice", minPrice);
-    if (maxPrice) query.set("maxPrice", maxPrice);
-    if (selectedColor) query.set("color", selectedColor);
-    if (selectedSize) query.set("size", selectedSize);
-    
-    // Boolean filters (check if exist in URL)
-    const featured = searchParams.get("featured");
-    const trending = searchParams.get("trending");
-    const bestSeller = searchParams.get("bestSeller");
-    if (featured) query.set("featured", featured);
-    if (trending) query.set("trending", trending);
-    if (bestSeller) query.set("bestSeller", bestSeller);
+    if (maxPriceInput) query.set("maxPrice", maxPriceInput);
+    else query.delete("maxPrice");
 
     query.set("sort", newSort);
     query.set("page", newPage.toString());
 
     setCurrentPage(newPage);
+    router.push(`/search?${query.toString()}`);
+  };
+
+  const handleCategorySelect = (catName) => {
+    const query = new URLSearchParams(searchParams.toString());
+    if (selectedCategory === catName) {
+      query.delete("category");
+    } else {
+      query.set("category", catName);
+    }
+    query.set("page", "1");
     router.push(`/search?${query.toString()}`);
   };
 
@@ -114,17 +117,41 @@ const SearchPage = () => {
     } else {
       brandsArr.push(brandName);
     }
-    setSelectedBrands(brandsArr.join(","));
+    const query = new URLSearchParams(searchParams.toString());
+    if (brandsArr.length > 0) {
+      query.set("brand", brandsArr.join(","));
+    } else {
+      query.delete("brand");
+    }
+    query.set("page", "1");
+    router.push(`/search?${query.toString()}`);
+  };
+
+  const handleColorSelect = (color) => {
+    const query = new URLSearchParams(searchParams.toString());
+    if (selectedColor === color) {
+      query.delete("color");
+    } else {
+      query.set("color", color);
+    }
+    query.set("page", "1");
+    router.push(`/search?${query.toString()}`);
+  };
+
+  const handleSizeSelect = (size) => {
+    const query = new URLSearchParams(searchParams.toString());
+    if (selectedSize === size) {
+      query.delete("size");
+    } else {
+      query.set("size", size);
+    }
+    query.set("page", "1");
+    router.push(`/search?${query.toString()}`);
   };
 
   const handleClearFilters = () => {
-    setSelectedCategory("");
-    setSelectedSubcategory("");
-    setSelectedBrands("");
-    setMinPrice("");
-    setMaxPrice("");
-    setSelectedColor("");
-    setSelectedSize("");
+    setMinPriceInput("");
+    setMaxPriceInput("");
     router.push("/search");
   };
 
@@ -184,9 +211,7 @@ const SearchPage = () => {
                 {categories.map((cat) => (
                   <button
                     key={cat._id}
-                    onClick={() => {
-                      setSelectedCategory(selectedCategory === cat.name ? "" : cat.name);
-                    }}
+                    onClick={() => handleCategorySelect(cat.name)}
                     className={`text-left text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors ${selectedCategory === cat.name ? "bg-zinc-100 text-black dark:bg-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"}`}
                   >
                     {cat.name}
@@ -227,15 +252,15 @@ const SearchPage = () => {
                 <input
                   type="number"
                   placeholder="Min ₹"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
+                  value={minPriceInput}
+                  onChange={(e) => setMinPriceInput(e.target.value)}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2 text-xs font-bold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
                 />
                 <input
                   type="number"
                   placeholder="Max ₹"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
+                  value={maxPriceInput}
+                  onChange={(e) => setMaxPriceInput(e.target.value)}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2 text-xs font-bold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
                 />
               </div>
@@ -250,7 +275,7 @@ const SearchPage = () => {
                 {colorOptions.map((c) => (
                   <button
                     key={c}
-                    onClick={() => setSelectedColor(selectedColor === c ? "" : c)}
+                    onClick={() => handleColorSelect(c)}
                     className={`rounded-full px-3 py-1 border text-[10px] font-bold transition-all ${selectedColor === c ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-zinc-200 text-zinc-500 hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-400"}`}
                   >
                     {c}
@@ -263,13 +288,13 @@ const SearchPage = () => {
 
             {/* Sizes */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-4">Sizing</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-4">Available Sizes</h3>
               <div className="flex flex-wrap gap-1.5">
                 {sizeOptions.map((s) => (
                   <button
                     key={s}
-                    onClick={() => setSelectedSize(selectedSize === s ? "" : s)}
-                    className={`rounded-lg h-9 w-9 border flex items-center justify-center text-xs font-bold transition-all ${selectedSize === s ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-zinc-200 text-zinc-500 hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-400"}`}
+                    onClick={() => handleSizeSelect(s)}
+                    className={`rounded-lg px-2.5 py-1 border text-[10px] font-bold transition-all ${selectedSize === s ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-zinc-200 text-zinc-500 hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-400"}`}
                   >
                     {s}
                   </button>
@@ -286,7 +311,44 @@ const SearchPage = () => {
           </aside>
 
           {/* PRODUCT LIST GRIDS */}
-          <div className="lg:col-span-3 flex flex-col gap-10">
+          <div className="lg:col-span-3 flex flex-col gap-6">
+            
+            {/* Top Category Filter Pill Bar */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x border-b border-zinc-100 dark:border-zinc-900">
+              <button
+                onClick={() => {
+                  setSelectedCategory("");
+                  const q = new URLSearchParams(searchParams.toString());
+                  q.delete("category");
+                  router.push(`/search?${q.toString()}`);
+                }}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-extrabold uppercase transition-all ${!selectedCategory ? "bg-black text-white dark:bg-white dark:text-black shadow-sm" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-400"}`}
+              >
+                All Products ({totalProducts})
+              </button>
+              {categories.map((cat) => {
+                const isSelected = selectedCategory === cat.name;
+                return (
+                  <button
+                    key={cat._id}
+                    onClick={() => {
+                      setSelectedCategory(isSelected ? "" : cat.name);
+                      const q = new URLSearchParams(searchParams.toString());
+                      if (isSelected) {
+                        q.delete("category");
+                      } else {
+                        q.set("category", cat.name);
+                      }
+                      router.push(`/search?${q.toString()}`);
+                    }}
+                    className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-extrabold uppercase transition-all ${isSelected ? "bg-black text-white dark:bg-white dark:text-black shadow-sm" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-400"}`}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
+
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -315,37 +377,31 @@ const SearchPage = () => {
               </div>
             )}
 
-            {/* PAGINATION */}
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-4">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => applyFilters(selectedSort, currentPage - 1)}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-500 hover:text-black disabled:opacity-50 dark:border-zinc-800"
-                >
-                  Prev
-                </button>
-                {Array.from({ length: totalPages }).map((_, idx) => {
-                  const page = idx + 1;
+            {/* Bottom Category Switcher (Replaces Numerical Pagination) */}
+            <div className="mt-8 pt-8 border-t border-zinc-100 dark:border-zinc-900 flex flex-col items-center gap-4 text-center">
+              <p className="text-xs font-extrabold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                Explore More Category Collections
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 max-w-3xl">
+                {categories.map((cat) => {
+                  const isSelected = selectedCategory === cat.name;
                   return (
                     <button
-                      key={page}
-                      onClick={() => applyFilters(selectedSort, page)}
-                      className={`rounded-lg h-8 w-8 text-xs font-bold transition-all ${currentPage === page ? "bg-black text-white dark:bg-white dark:text-black" : "border border-zinc-200 text-zinc-500 hover:text-black dark:border-zinc-800"}`}
+                      key={cat._id}
+                      onClick={() => {
+                        setSelectedCategory(cat.name);
+                        const q = new URLSearchParams(searchParams.toString());
+                        q.set("category", cat.name);
+                        router.push(`/search?${q.toString()}`);
+                      }}
+                      className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${isSelected ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black shadow-md" : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"}`}
                     >
-                      {page}
+                      {cat.name} Collection →
                     </button>
                   );
                 })}
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => applyFilters(selectedSort, currentPage + 1)}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-500 hover:text-black disabled:opacity-50 dark:border-zinc-800"
-                >
-                  Next
-                </button>
               </div>
-            )}
+            </div>
           </div>
 
         </div>

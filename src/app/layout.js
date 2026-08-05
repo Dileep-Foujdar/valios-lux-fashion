@@ -14,8 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "VALOIS Luxury Fashion",
-  description: "Experience premium fashion clothing, shoes, watches, and accessories.",
+  title: "Kirnya | Premium Fashion Brand",
+  description: "Experience Kirnya's luxury fashion clothing, shoes, watches, and accessories.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }) {
