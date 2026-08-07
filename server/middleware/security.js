@@ -26,6 +26,28 @@ export const otpLimiter = rateLimit({
   }
 });
 
+export const partnerRegisterLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many registration attempts. Please try again later."
+  }
+});
+
+export const partnerAcceptLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many accept attempts. Please wait a moment."
+  }
+});
+
 // CORS Config
 export const configureCors = () => {
   const allowedOrigins = [
@@ -57,8 +79,29 @@ export const configureHelmet = () => {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://checkout.razorpay.com", "https://js.stripe.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://res.cloudinary.com", "https://placehold.co", "https://*.stripe.com"],
-        connectSrc: ["'self'", "https://api.cloudinary.com", "https://api.stripe.com", "https://checkout.razorpay.com", "wss://*", "ws://*"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://images.unsplash.com",
+          "https://res.cloudinary.com",
+          "https://placehold.co",
+          "https://*.stripe.com",
+          "https://*.amazonaws.com",
+          "https://d1dedewa7t70lf.cloudfront.net",
+          "https://*.cloudfront.net"
+        ],
+        connectSrc: [
+          "'self'",
+          "https://api.cloudinary.com",
+          "https://api.stripe.com",
+          "https://checkout.razorpay.com",
+          "https://*.amazonaws.com",
+          "https://d1dedewa7t70lf.cloudfront.net",
+          "https://*.cloudfront.net",
+          "wss://*",
+          "ws://*"
+        ],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", "https://assets.mixkit.co", "blob:", "data:"],

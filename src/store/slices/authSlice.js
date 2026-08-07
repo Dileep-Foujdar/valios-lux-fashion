@@ -38,9 +38,14 @@ const authSlice = createSlice({
       if (state.user) {
         state.user.walletBalance = action.payload;
       }
+    },
+    updateUser: (state, action) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
     }
   }
 });
 
-export const { setCredentials, clearCredentials, setLoading, setError, updateUserWallet } = authSlice.actions;
+export const { setCredentials, clearCredentials, setLoading, setError, updateUserWallet, updateUser } = authSlice.actions;
 export default authSlice.reducer;

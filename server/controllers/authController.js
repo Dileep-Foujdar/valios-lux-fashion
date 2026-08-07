@@ -3,9 +3,11 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import OTP from "../models/OTP.js";
 import { sendEmail, emailTemplates } from "../utils/email.js";
-import { sendSMS, smsTemplates } from "../utils/sms.js";
+import { normalizeMobile, isValidIndianMobile } from "../utils/mobile.js";
 
-// Helper to generate JWT tokens
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const OTP_TTL_MS = 5 * 60 * 1000;
+
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
     { id: user._id, role: user.role },
@@ -22,108 +24,332 @@ const generateTokens = (user) => {
   return { accessToken, refreshToken };
 };
 
-// Cookie options helper
-const getCookieOptions = (days) => {
+const getCookieOptions = (days) => ({
+  expires: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/"
+});
+
+const toAuthUser = (user, extras = {}) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  mobile: user.mobile || "",
+  role: user.role,
+  walletBalance: user.walletBalance,
+  referralCode: user.referralCode,
+  notifications: user.notifications || { permission: "default", enabled: false },
+  location: user.location || { permission: "prompt" },
+  permissionsOnboardingCompleted: Boolean(user.permissionsOnboardingCompleted),
+  ...extras
+});
+
+const createAndSendEmailOtp = async ({ destination, purpose, pendingRegistration }) => {
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+
+  const $set = {
+    code: otpCode,
+    purpose,
+    expiresAt,
+    verified: false,
+    isUsed: false,
+    attempts: 0
+  };
+
+  const updateDoc = { $set };
+
+  if (purpose === "register" && pendingRegistration) {
+    $set.pendingRegistration = pendingRegistration;
+  } else if (purpose === "login") {
+    updateDoc.$unset = { pendingRegistration: 1 };
+  }
+
+  await OTP.findOneAndUpdate(
+    { destination },
+    updateDoc,
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  const emailHtml = emailTemplates.otp(otpCode);
+  const emailText = `Your Kirnya verification code is: ${otpCode}. Valid for 5 minutes.`;
+
+  await sendEmail({
+    to: destination,
+    subject: purpose === "register"
+      ? "Verify your Kirnya registration"
+      : "Your Kirnya login code",
+    html: emailHtml,
+    text: emailText
+  });
+
+  return otpCode;
+};
+
+const validateLocationPayload = (location) => {
+  if (!location || typeof location !== "object") {
+    return { ok: false, message: "Current location is required" };
+  }
+
+  const permission = location.permission;
+  const city = (location.city || "").trim();
+  const address = (location.address || "").trim();
+  const hasCoords =
+    typeof location.latitude === "number" &&
+    typeof location.longitude === "number" &&
+    !Number.isNaN(location.latitude) &&
+    !Number.isNaN(location.longitude);
+
+  if (permission === "granted" && hasCoords) {
+    return {
+      ok: true,
+      location: {
+        permission: "granted",
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: typeof location.accuracy === "number" ? location.accuracy : undefined,
+        city: city || undefined,
+        address: address || undefined,
+        updatedAt: new Date()
+      }
+    };
+  }
+
+  if ((permission === "manual" || permission === "denied") && (city || address)) {
+    return {
+      ok: true,
+      location: {
+        permission: permission === "denied" ? "manual" : permission,
+        city: city || undefined,
+        address: address || undefined,
+        latitude: hasCoords ? location.latitude : undefined,
+        longitude: hasCoords ? location.longitude : undefined,
+        updatedAt: new Date()
+      }
+    };
+  }
+
+  if (city || address) {
+    return {
+      ok: true,
+      location: {
+        permission: "manual",
+        city: city || undefined,
+        address: address || undefined,
+        updatedAt: new Date()
+      }
+    };
+  }
+
   return {
-    expires: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/"
+    ok: false,
+    message: "Allow live location or enter your city/address manually"
   };
 };
 
-// 1. Request OTP (Email or Mobile)
-export const requestOTP = async (req, res, next) => {
+const issueSession = async (user, res, message) => {
+  const { accessToken, refreshToken } = generateTokens(user);
+  res.cookie("token", accessToken, getCookieOptions(1));
+  res.cookie("refreshToken", refreshToken, getCookieOptions(7));
+
+  const populatedUser = await User.findById(user._id)
+    .populate("cart.product", "title images salePrice mrp stock brand")
+    .populate("wishlist", "title images salePrice mrp stock brand");
+
+  return res.status(200).json({
+    success: true,
+    message,
+    token: accessToken,
+    refreshToken,
+    user: toAuthUser(user, {
+      cart: populatedUser?.cart || [],
+      wishlist: populatedUser?.wishlist || []
+    })
+  });
+};
+
+// Optional helper for UI: check if email already has an account
+export const checkEmail = async (req, res, next) => {
   try {
-    const { email, mobile } = req.body;
-
-    if (!email && !mobile) {
-      return res.status(400).json({ success: false, message: "Please provide email or mobile number" });
+    const email = (req.query.email || req.body?.email || "").toLowerCase().trim();
+    if (!email || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ success: false, message: "Valid email is required" });
     }
 
-    const destination = email ? email.toLowerCase().trim() : mobile.trim();
-    const isEmail = !!email;
-
-    // Generate 6-digit OTP code
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
-
-    // Save/Update OTP in database with used/unused status and 5 min expiry
-    await OTP.findOneAndUpdate(
-      { destination },
-      { code: otpCode, expiresAt, verified: false, isUsed: false, attempts: 0 },
-      { upsert: true, new: true }
-    );
-
-    // Send OTP via real Nodemailer email or SMS
-    if (isEmail) {
-      const emailHtml = emailTemplates.otp(otpCode);
-      const emailText = `Your Kirnya verification code is: ${otpCode}. Valid for 5 minutes.`;
-      try {
-        await sendEmail({
-          to: destination,
-          subject: "Your Kirnya Verification Code",
-          html: emailHtml,
-          text: emailText
-        });
-      } catch (emailErr) {
-        return res.status(400).json({
-          success: false,
-          message: `Email delivery failed: ${emailErr.message}`
-        });
-      }
-    } else {
-      const smsText = smsTemplates.otp(otpCode);
-      await sendSMS({
-        to: destination,
-        body: smsText
-      });
-    }
-
-    res.status(200).json({
+    const exists = Boolean(await User.findOne({ email }).select("_id"));
+    return res.status(200).json({
       success: true,
-      message: `OTP sent successfully to ${destination}`
+      exists,
+      mode: exists ? "login" : "register"
     });
   } catch (error) {
     next(error);
   }
 };
 
-// 2. Verify OTP & Login
-export const verifyOTP = async (req, res, next) => {
+// 1. Request OTP — login (existing) or register (new)
+export const requestOTP = async (req, res, next) => {
   try {
-    const { email, mobile, code } = req.body;
+    const { email, mobile, purpose: rawPurpose, name, location } = req.body;
+    const purpose = rawPurpose === "register" ? "register" : "login";
 
-    if ((!email && !mobile) || !code) {
-      return res.status(400).json({ success: false, message: "Please provide destination (email/mobile) and OTP code" });
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email address is required" });
     }
 
-    const destination = email ? email.toLowerCase().trim() : mobile.trim();
+    const destination = email.toLowerCase().trim();
+    if (!EMAIL_RE.test(destination)) {
+      return res.status(400).json({ success: false, message: "Please provide a valid email address" });
+    }
 
-    // Find the OTP record
+    const existingUser = await User.findOne({ email: destination });
+
+    if (purpose === "login") {
+      if (!existingUser) {
+        return res.status(404).json({
+          success: false,
+          message: "No account found with this email. Please create an account first.",
+          code: "USER_NOT_FOUND"
+        });
+      }
+      if (!existingUser.isActive) {
+        return res.status(403).json({ success: false, message: "Your account is deactivated. Please contact support." });
+      }
+
+      try {
+        const otpCode = await createAndSendEmailOtp({ destination, purpose: "login" });
+        const payload = {
+          success: true,
+          purpose: "login",
+          message: `OTP sent successfully to ${destination}`
+        };
+        if (process.env.NODE_ENV !== "production") {
+          payload.otp = otpCode;
+        }
+        return res.status(200).json(payload);
+      } catch (emailErr) {
+        return res.status(400).json({
+          success: false,
+          message: `Email delivery failed: ${emailErr.message}`
+        });
+      }
+    }
+
+    // REGISTER
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account already exists with this email. Please sign in instead.",
+        code: "USER_EXISTS"
+      });
+    }
+
+    const fullName = (name || "").trim();
+    if (fullName.length < 2) {
+      return res.status(400).json({ success: false, message: "Full name is required" });
+    }
+
+    const normalized = normalizeMobile(mobile);
+    if (!normalized || !isValidIndianMobile(normalized)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid 10-digit Indian mobile number"
+      });
+    }
+
+    const mobileTaken = await User.findOne({ mobile: normalized });
+    if (mobileTaken) {
+      return res.status(409).json({
+        success: false,
+        message: "This mobile number is already linked to another account"
+      });
+    }
+
+    const locationCheck = validateLocationPayload(location);
+    if (!locationCheck.ok) {
+      return res.status(400).json({ success: false, message: locationCheck.message });
+    }
+
+    try {
+      const otpCode = await createAndSendEmailOtp({
+        destination,
+        purpose: "register",
+        pendingRegistration: {
+          name: fullName,
+          mobile: normalized,
+          location: {
+            permission: locationCheck.location.permission,
+            latitude: locationCheck.location.latitude,
+            longitude: locationCheck.location.longitude,
+            accuracy: locationCheck.location.accuracy,
+            city: locationCheck.location.city,
+            address: locationCheck.location.address
+          }
+        }
+      });
+
+      const payload = {
+        success: true,
+        purpose: "register",
+        message: `Verification OTP sent to ${destination}. Verify to create your account.`
+      };
+      if (process.env.NODE_ENV !== "production") {
+        payload.otp = otpCode;
+      }
+      return res.status(200).json(payload);
+    } catch (emailErr) {
+      return res.status(400).json({
+        success: false,
+        message: `Email delivery failed: ${emailErr.message}`
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 2. Verify OTP — login existing OR create account from pending registration
+export const verifyOTP = async (req, res, next) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide email and OTP code"
+      });
+    }
+
+    const destination = email.toLowerCase().trim();
     const otpRecord = await OTP.findOne({ destination });
 
     if (!otpRecord) {
-      return res.status(400).json({ success: false, message: "No OTP request found for this destination" });
+      return res.status(400).json({ success: false, message: "No OTP request found for this email" });
     }
 
-    // Check if OTP was already used
     if (otpRecord.isUsed) {
-      return res.status(400).json({ success: false, message: "This OTP has already been used. Please request a new one." });
+      return res.status(400).json({
+        success: false,
+        message: "This OTP has already been used. Please request a new one."
+      });
     }
 
-    // Check if expired (5 minutes window)
     if (otpRecord.expiresAt < new Date()) {
-      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one."
+      });
     }
 
-    // Check attempts (max 5)
     if (otpRecord.attempts >= 5) {
-      return res.status(400).json({ success: false, message: "Too many failed attempts. Please request a new OTP." });
+      return res.status(400).json({
+        success: false,
+        message: "Too many failed attempts. Please request a new OTP."
+      });
     }
 
-    // Check code match
     if (otpRecord.code !== code.toString().trim()) {
       otpRecord.attempts += 1;
       await otpRecord.save();
@@ -133,82 +359,95 @@ export const verifyOTP = async (req, res, next) => {
       });
     }
 
-    // Mark OTP as verified and used
     otpRecord.verified = true;
     otpRecord.isUsed = true;
     await otpRecord.save();
 
-    // Check if user exists, if not auto-register them as Customer
-    let user;
-    if (email) {
-      user = await User.findOne({ email: destination });
-    } else {
-      user = await User.findOne({ mobile: destination });
+    let user = await User.findOne({ email: destination });
+
+    if (otpRecord.purpose === "register") {
+      if (user) {
+        await OTP.deleteOne({ destination });
+        return res.status(409).json({
+          success: false,
+          message: "An account already exists with this email. Please sign in instead."
+        });
+      }
+
+      const pending = otpRecord.pendingRegistration;
+      if (!pending?.name || !pending?.mobile) {
+        return res.status(400).json({
+          success: false,
+          message: "Registration details expired. Please fill the form and request a new OTP."
+        });
+      }
+
+      const mobileTaken = await User.findOne({ mobile: pending.mobile });
+      if (mobileTaken) {
+        return res.status(409).json({
+          success: false,
+          message: "This mobile number is already linked to another account"
+        });
+      }
+
+      const hasLocation =
+        pending.location &&
+        (pending.location.permission === "granted" ||
+          pending.location.city ||
+          pending.location.address);
+
+      user = await User.create({
+        name: pending.name,
+        email: destination,
+        mobile: pending.mobile,
+        role: "Customer",
+        location: pending.location
+          ? {
+              permission: pending.location.permission || "manual",
+              latitude: pending.location.latitude,
+              longitude: pending.location.longitude,
+              accuracy: pending.location.accuracy,
+              city: pending.location.city,
+              address: pending.location.address,
+              updatedAt: new Date()
+            }
+          : { permission: "prompt" },
+        permissionsOnboardingCompleted: Boolean(hasLocation)
+      });
+
+      await OTP.deleteOne({ destination });
+      return issueSession(user, res, "Account created and verified successfully");
     }
 
+    // LOGIN
     if (!user) {
-      // Auto-register
-      const tempName = email ? destination.split("@")[0] : `User_${destination.substring(destination.length - 4)}`;
-      user = await User.create({
-        name: tempName,
-        email: email ? destination : `${destination}@valois-mobile.com`,
-        mobile: mobile ? destination : undefined,
-        role: "Customer"
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email. Please create an account first."
       });
     }
 
     if (!user.isActive) {
-      return res.status(403).json({ success: false, message: "Your account is deactivated. Please contact support." });
+      return res.status(403).json({
+        success: false,
+        message: "Your account is deactivated. Please contact support."
+      });
     }
 
-    // Generate JWT access and refresh tokens
-    const { accessToken, refreshToken } = generateTokens(user);
-
-    // Set HTTP-only cookies
-    res.cookie("token", accessToken, getCookieOptions(1)); // 1 day access
-    res.cookie("refreshToken", refreshToken, getCookieOptions(7)); // 7 days refresh
-
-    // Delete verified OTP record after completing login
     await OTP.deleteOne({ destination });
-
-    // Fetch populated user data for cart and wishlist
-    const populatedUser = await User.findById(user._id)
-      .populate("cart.product", "title images salePrice mrp stock brand")
-      .populate("wishlist", "title images salePrice mrp stock brand");
-
-    res.status(200).json({
-      success: true,
-      message: "Logged in successfully",
-      token: accessToken,
-      refreshToken,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-        walletBalance: user.walletBalance,
-        referralCode: user.referralCode,
-        cart: populatedUser.cart || [],
-        wishlist: populatedUser.wishlist || []
-      }
-    });
+    return issueSession(user, res, "Logged in successfully");
   } catch (error) {
     next(error);
   }
 };
 
-// 3. Refresh Access Token
 export const refreshAccessToken = async (req, res, next) => {
   try {
     let refreshToken = "";
 
-    // Read from cookies first
     if (req.cookies && req.cookies.refreshToken) {
       refreshToken = req.cookies.refreshToken;
-    } 
-    // Fallback to request body
-    else if (req.body.refreshToken) {
+    } else if (req.body.refreshToken) {
       refreshToken = req.body.refreshToken;
     }
 
@@ -218,16 +457,13 @@ export const refreshAccessToken = async (req, res, next) => {
 
     try {
       const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-      
+
       const user = await User.findById(decoded.id);
       if (!user || !user.isActive) {
         return res.status(401).json({ success: false, message: "Invalid user session" });
       }
 
-      // Generate new tokens
       const tokens = generateTokens(user);
-
-      // Set cookies
       res.cookie("token", tokens.accessToken, getCookieOptions(1));
       res.cookie("refreshToken", tokens.refreshToken, getCookieOptions(7));
 
@@ -236,7 +472,7 @@ export const refreshAccessToken = async (req, res, next) => {
         token: tokens.accessToken,
         refreshToken: tokens.refreshToken
       });
-    } catch (err) {
+    } catch {
       return res.status(401).json({ success: false, message: "Invalid or expired refresh token" });
     }
   } catch (error) {
@@ -244,7 +480,6 @@ export const refreshAccessToken = async (req, res, next) => {
   }
 };
 
-// 4. Logout User
 export const logout = async (req, res, next) => {
   try {
     res.clearCookie("token", { path: "/" });
@@ -259,7 +494,6 @@ export const logout = async (req, res, next) => {
   }
 };
 
-// 5. Get Current User Details
 export const getCurrentUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select("-__v");
@@ -272,7 +506,6 @@ export const getCurrentUser = async (req, res, next) => {
   }
 };
 
-// 6. Login with Email and Password
 export const loginWithPassword = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -286,10 +519,16 @@ export const loginWithPassword = async (req, res, next) => {
     }
 
     if (!user.password) {
-      return res.status(400).json({ success: false, message: "No password set for this account. Please log in via OTP first." });
+      return res.status(400).json({
+        success: false,
+        message: "No password set for this account. Please log in via OTP first."
+      });
     }
 
-    const hashedPassword = crypto.createHash("sha256").update(password + "valois-salt-string").digest("hex");
+    const hashedPassword = crypto
+      .createHash("sha256")
+      .update(password + "valois-salt-string")
+      .digest("hex");
     if (user.password !== hashedPassword) {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
@@ -298,34 +537,12 @@ export const loginWithPassword = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Your account is deactivated." });
     }
 
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user);
-
-    // Set cookies
-    res.cookie("token", accessToken, getCookieOptions(1));
-    res.cookie("refreshToken", refreshToken, getCookieOptions(7));
-
-    res.status(200).json({
-      success: true,
-      message: "Logged in successfully with password",
-      token: accessToken,
-      refreshToken,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-        walletBalance: user.walletBalance,
-        referralCode: user.referralCode
-      }
-    });
+    return issueSession(user, res, "Logged in successfully with password");
   } catch (error) {
     next(error);
   }
 };
 
-// 7. Force Owner Bypass Login URL
 export const forceOwnerLogin = async (req, res, next) => {
   try {
     let user = await User.findOne({ email: "dlpfjdr@gmail.com" });
@@ -333,10 +550,11 @@ export const forceOwnerLogin = async (req, res, next) => {
       user = await User.create({
         name: "Valois Owner",
         email: "dlpfjdr@gmail.com",
-        mobile: "+919999999999",
+        mobile: "9999999999",
         role: "Owner",
         walletBalance: 100000,
-        password: "password123"
+        password: "password123",
+        permissionsOnboardingCompleted: true
       });
     } else {
       user.role = "Owner";
@@ -365,7 +583,6 @@ export const forceOwnerLogin = async (req, res, next) => {
   }
 };
 
-// 8. Google Sign-In Login
 export const googleLogin = async (req, res, next) => {
   try {
     const { email, name } = req.body;
@@ -377,43 +594,22 @@ export const googleLogin = async (req, res, next) => {
     let user = await User.findOne({ email: email.toLowerCase().trim() });
 
     if (!user) {
-      // Auto-register the Google user as a Customer
-      user = await User.create({
-        name: name || email.split("@")[0],
-        email: email.toLowerCase().trim(),
-        mobile: undefined,
-        role: "Customer"
+      return res.status(404).json({
+        success: false,
+        message: "No account found. Please create an account with name, mobile, email and location first.",
+        code: "USER_NOT_FOUND"
       });
     }
 
     if (!user.isActive) {
-      return res.status(403).json({ success: false, message: "Your account is deactivated. Please contact support." });
+      return res.status(403).json({
+        success: false,
+        message: "Your account is deactivated. Please contact support."
+      });
     }
 
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user);
-
-    // Set cookies
-    res.cookie("token", accessToken, getCookieOptions(1));
-    res.cookie("refreshToken", refreshToken, getCookieOptions(7));
-
-    res.status(200).json({
-      success: true,
-      message: "Logged in with Google successfully",
-      token: accessToken,
-      refreshToken,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-        walletBalance: user.walletBalance,
-        referralCode: user.referralCode
-      }
-    });
+    return issueSession(user, res, "Logged in with Google successfully");
   } catch (error) {
     next(error);
   }
 };
-

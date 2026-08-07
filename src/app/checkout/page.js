@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { useForm } from "react-hook-form";
-import { IoLocationOutline, IoWalletOutline, IoCardOutline, IoCashOutline, IoCheckmarkCircleOutline } from "react-icons/io5";
+import { IoLocationOutline, IoWalletOutline, IoCardOutline, IoCashOutline, IoCheckmarkCircleOutline, IoPhonePortraitOutline, IoNavigateOutline } from "react-icons/io5";
 import toast from "react-hot-toast";
 
 import Navbar from "../../components/Navbar.js";
@@ -12,12 +13,40 @@ import Footer from "../../components/Footer.js";
 import { clearCart } from "../../store/slices/cartSlice.js";
 import api from "../../utils/api.js";
 
+const normalizeMobile = (raw) => {
+  let digits = String(raw || "").replace(/\D/g, "");
+  if (digits.startsWith("91") && digits.length === 12) digits = digits.slice(2);
+  if (digits.startsWith("0") && digits.length === 11) digits = digits.slice(1);
+  return digits;
+};
+const isValidIndianMobile = (v) => /^[6-9]\d{9}$/.test(normalizeMobile(v));
+const isValidPin = (v) => /^\d{6}$/.test(String(v || "").trim());
+
+const waitForRazorpay = () =>
+  new Promise((resolve, reject) => {
+    if (typeof window !== "undefined" && window.Razorpay) {
+      resolve(window.Razorpay);
+      return;
+    }
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (typeof window !== "undefined" && window.Razorpay) {
+        clearInterval(timer);
+        resolve(window.Razorpay);
+      } else if (tries > 40) {
+        clearInterval(timer);
+        reject(new Error("Razorpay checkout failed to load. Please refresh and try again."));
+      }
+    }, 100);
+  });
+
 const CheckoutPage = () => {
   const router = useRouter();
   const dispatch = useDispatch();
 
   const { items, subtotal, gst, shipping, coupon, couponDiscount, total } = useSelector((state) => state.cart);
-  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   // DB profile states
   const [addresses, setAddresses] = useState([]);
@@ -25,13 +54,28 @@ const CheckoutPage = () => {
   
   // Selection States
   const [selectedAddressId, setSelectedAddressId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("COD"); // COD, Stripe, Razorpay
+  const [paymentMethod, setPaymentMethod] = useState("Razorpay"); // Razorpay (default), COD
   const [useWallet, setUseWallet] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   // Address Form
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm({
+    defaultValues: {
+      name: "",
+      phone: "",
+      houseNo: "",
+      street: "",
+      landmark: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "India",
+      latitude: "",
+      longitude: ""
+    }
+  });
 
   // Redirect if cart is empty or user is logged out
   useEffect(() => {
@@ -78,22 +122,76 @@ const CheckoutPage = () => {
     }
   }, [isAuthenticated]);
 
+  const useLiveLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error("Location is not supported on this device");
+      return;
+    }
+    toast(
+      "We use your location only to autofill delivery address fields. You can edit everything before saving.",
+      { duration: 4000 }
+    );
+    setLocating(true);
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        });
+      });
+      const { latitude, longitude } = position.coords;
+      const res = await api.post("/users/geocode/reverse", { latitude, longitude });
+      if (!res.data.success) throw new Error(res.data.message || "Geocode failed");
+      const a = res.data.address;
+      if (a.houseNo) setValue("houseNo", a.houseNo);
+      if (a.street) setValue("street", a.street);
+      if (a.landmark) setValue("landmark", a.landmark);
+      if (a.city) setValue("city", a.city);
+      if (a.state) setValue("state", a.state);
+      if (a.country) setValue("country", a.country);
+      if (a.zipCode) setValue("zipCode", a.zipCode);
+      setValue("latitude", String(latitude));
+      setValue("longitude", String(longitude));
+      toast.success("Address filled from your live location — please review and edit if needed");
+    } catch (err) {
+      if (err?.code === 1) toast.error("Location permission denied. Enter address manually.");
+      else toast.error(err.response?.data?.message || err.message || "Could not fetch location");
+    } finally {
+      setLocating(false);
+    }
+  };
+
   // Add Address Form Submit
   const onAddressSubmit = async (data) => {
+    if (!isValidIndianMobile(data.phone)) {
+      toast.error("Enter a valid 10-digit Indian mobile number");
+      return;
+    }
+    if (!isValidPin(data.zipCode)) {
+      toast.error("Enter a valid 6-digit PIN code");
+      return;
+    }
     try {
-      const res = await api.post("/users/address", data);
+      const payload = {
+        ...data,
+        phone: normalizeMobile(data.phone),
+        latitude: data.latitude ? Number(data.latitude) : undefined,
+        longitude: data.longitude ? Number(data.longitude) : undefined,
+        isDefault: addresses.length === 0
+      };
+      const res = await api.post("/users/address", payload);
       if (res.data.success) {
         toast.success("Address added successfully!");
         setAddresses(res.data.addresses);
         setShowAddressForm(false);
         reset();
-        
-        // Select newly added address
+
         const lastAddr = res.data.addresses[res.data.addresses.length - 1];
         if (lastAddr) setSelectedAddressId(lastAddr._id);
       }
     } catch (err) {
-      toast.error("Failed to add address.");
+      toast.error(err.response?.data?.message || "Failed to add address.");
     }
   };
 
@@ -106,6 +204,11 @@ const CheckoutPage = () => {
 
     const selectedAddr = addresses.find(a => a._id === selectedAddressId);
     if (!selectedAddr) return;
+
+    if (!isValidIndianMobile(selectedAddr.phone || user?.mobile)) {
+      toast.error("Selected address needs a valid mobile number. Please add a new address.");
+      return;
+    }
 
     setIsPlacingOrder(true);
     const loadId = toast.loading("Processing order checkout...");
@@ -124,12 +227,16 @@ const CheckoutPage = () => {
         items: checkoutItems,
         shippingAddress: {
           name: selectedAddr.name,
-          phone: selectedAddr.phone,
+          phone: normalizeMobile(selectedAddr.phone),
+          houseNo: selectedAddr.houseNo || "",
           street: selectedAddr.street,
+          landmark: selectedAddr.landmark || "",
           city: selectedAddr.city,
           state: selectedAddr.state,
           zipCode: selectedAddr.zipCode,
-          country: selectedAddr.country
+          country: selectedAddr.country || "India",
+          latitude: selectedAddr.latitude,
+          longitude: selectedAddr.longitude
         },
         paymentMethod,
         couponCode: coupon?.code,
@@ -139,7 +246,7 @@ const CheckoutPage = () => {
       if (res.data.success) {
         const { order, amountToPay } = res.data;
 
-        // If order amount is 0 (paid fully by wallet) or payment method is COD
+        // Fully wallet-paid or Cash on Delivery — no gateway needed
         if (amountToPay === 0 || paymentMethod === "COD") {
           toast.success("Order placed successfully!", { id: loadId });
           dispatch(clearCart());
@@ -147,79 +254,104 @@ const CheckoutPage = () => {
           return;
         }
 
-        // 2. Stripe integration
-        if (paymentMethod === "Stripe") {
-          const payRes = await api.post("/payments/stripe", { orderId: order._id });
-          if (payRes.data.success) {
-            toast.loading("Redirecting to Stripe Gateway...", { id: loadId });
-            window.location.href = payRes.data.url; // Redirect to Stripe Checkouts page
-          }
-        } 
-        
-        // 3. Razorpay integration
-        else if (paymentMethod === "Razorpay") {
+        // Razorpay (UPI / Cards / Netbanking / Wallets)
+        if (paymentMethod === "Razorpay") {
           const payRes = await api.post("/payments/razorpay", { orderId: order._id });
-          if (payRes.data.success) {
-            const { mode, amount, currency, orderId: rzpOrderId, keyId } = payRes.data;
-
-            // Handle fully mocked mode for dev testing
-            if (mode === "mock") {
-              toast.loading("Mocking Razorpay Gateway...", { id: loadId });
-              
-              // Verify mock payment directly
-              const verifyRes = await api.post("/payments/verify", {
-                gateway: "razorpay",
-                orderId: order._id,
-                razorpayPaymentId: `mock_pay_id_${Date.now()}`,
-                razorpayOrderId: rzpOrderId,
-                razorpaySignature: "mock_signature"
-              });
-
-              if (verifyRes.data.success) {
-                toast.success("Mock Razorpay Payment Successful!", { id: loadId });
-                dispatch(clearCart());
-                router.push(`/checkout/success?gateway=razorpay&orderId=${order._id}`);
-              } else {
-                toast.error("Mock verification failed", { id: loadId });
-              }
-            } else {
-              // Live Razorpay checkouts integration (fallback)
-              const options = {
-                key: keyId,
-                amount,
-                currency,
-                name: "Kirnya Fashion Brand",
-                description: `Checkout Order #${order.orderNumber}`,
-                order_id: rzpOrderId,
-                handler: async (response) => {
-                  const verifyRes = await api.post("/payments/verify", {
-                    gateway: "razorpay",
-                    orderId: order._id,
-                    razorpayPaymentId: response.razorpay_payment_id,
-                    razorpayOrderId: response.razorpay_order_id,
-                    razorpaySignature: response.razorpay_signature
-                  });
-                  if (verifyRes.data.success) {
-                    toast.success("Payment Successful!", { id: loadId });
-                    dispatch(clearCart());
-                    router.push(`/checkout/success?gateway=razorpay&orderId=${order._id}`);
-                  }
-                },
-                prefill: {
-                  name: selectedAddr.name,
-                  contact: selectedAddr.phone
-                },
-                theme: { color: "#000000" }
-              };
-              const rzp1 = new window.Razorpay(options);
-              rzp1.open();
-              toast.dismiss(loadId);
-            }
+          if (!payRes.data.success) {
+            throw new Error(payRes.data.message || "Failed to start Razorpay payment");
           }
+
+          const {
+            mode,
+            amount,
+            currency,
+            orderId: rzpOrderId,
+            keyId,
+            orderNumber
+          } = payRes.data;
+
+          // Dev mock when live Razorpay keys are not configured
+          if (mode === "mock") {
+            toast.loading("Processing Razorpay (test mode)...", { id: loadId });
+            const verifyRes = await api.post("/payments/verify", {
+              gateway: "razorpay",
+              orderId: order._id,
+              razorpayPaymentId: `pay_mock_${Date.now()}`,
+              razorpayOrderId: rzpOrderId,
+              razorpaySignature: "mock_signature"
+            });
+
+            if (verifyRes.data.success) {
+              toast.success("Payment successful (test mode)!", { id: loadId });
+              dispatch(clearCart());
+              router.push(`/checkout/success?gateway=razorpay&orderId=${order._id}`);
+            } else {
+              toast.error("Payment verification failed", { id: loadId });
+            }
+            return;
+          }
+
+          toast.loading("Opening Razorpay...", { id: loadId });
+          const RazorpayCheckout = await waitForRazorpay();
+
+          const options = {
+            key: keyId,
+            amount,
+            currency: currency || "INR",
+            name: "Kirnya Fashion",
+            description: `Order #${orderNumber || order.orderNumber}`,
+            order_id: rzpOrderId,
+            handler: async (response) => {
+              const verifyToast = toast.loading("Verifying payment...");
+              try {
+                const verifyRes = await api.post("/payments/verify", {
+                  gateway: "razorpay",
+                  orderId: order._id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpaySignature: response.razorpay_signature
+                });
+                if (verifyRes.data.success) {
+                  toast.success("Payment successful!", { id: verifyToast });
+                  dispatch(clearCart());
+                  router.push(`/checkout/success?gateway=razorpay&orderId=${order._id}`);
+                } else {
+                  toast.error("Payment verification failed", { id: verifyToast });
+                }
+              } catch (verifyErr) {
+                toast.error(
+                  verifyErr.response?.data?.message || "Payment verification failed",
+                  { id: verifyToast }
+                );
+              }
+            },
+            prefill: {
+              name: selectedAddr.name || user?.name || "",
+              email: user?.email || "",
+              contact: selectedAddr.phone || user?.mobile || ""
+            },
+            notes: {
+              internalOrderId: order._id,
+              orderNumber: orderNumber || order.orderNumber
+            },
+            theme: { color: "#111111" },
+            modal: {
+              ondismiss: () => {
+                toast.error("Payment cancelled. Your order is saved as pending — you can retry from Profile.");
+              }
+            }
+          };
+
+          const rzp = new RazorpayCheckout(options);
+          rzp.on("payment.failed", (response) => {
+            toast.error(response?.error?.description || "Razorpay payment failed");
+          });
+          rzp.open();
+          toast.dismiss(loadId);
         }
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Checkout failed. Try again.", { id: loadId });
+      toast.error(err.response?.data?.message || err.message || "Checkout failed. Try again.", { id: loadId });
     } finally {
       setIsPlacingOrder(false);
     }
@@ -231,13 +363,14 @@ const CheckoutPage = () => {
 
   return (
     <>
-      {/* Razorpay live script injection */}
-      <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       <Navbar />
       <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 bg-white dark:bg-black text-zinc-900 dark:text-white transition-colors min-h-[70vh]">
         <div className="border-b border-zinc-100 pb-6 dark:border-zinc-900 mb-8">
           <h1 className="text-xl font-extrabold uppercase tracking-wider">Secure Checkout</h1>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">Specify delivery address and select payment gateway</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">
+            Pay securely with Razorpay (UPI, cards, netbanking) or choose Cash on Delivery
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -263,73 +396,66 @@ const CheckoutPage = () => {
 
               {showAddressForm ? (
                 <form onSubmit={handleSubmit(onAddressSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase mb-1.5 block">Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="John Doe"
-                      {...register("name", { required: true })}
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase mb-1.5 block">Phone Number</label>
-                    <input
-                      type="tel"
-                      placeholder="+91 XXXXX XXXXX"
-                      {...register("phone", { required: true })}
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase mb-1.5 block">Street Address</label>
-                    <input
-                      type="text"
-                      placeholder="Apt, Building, Street..."
-                      {...register("street", { required: true })}
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase mb-1.5 block">City</label>
-                    <input
-                      type="text"
-                      placeholder="Mumbai"
-                      {...register("city", { required: true })}
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase mb-1.5 block">State</label>
-                    <input
-                      type="text"
-                      placeholder="Maharashtra"
-                      {...register("state", { required: true })}
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase mb-1.5 block">Zip / Postal Code</label>
-                    <input
-                      type="text"
-                      placeholder="400001"
-                      {...register("zipCode", { required: true })}
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-white"
-                    />
-                  </div>
-                  
-                  <div className="sm:col-span-2 flex gap-3 mt-2">
-                    <button
-                      type="submit"
-                      className="rounded-xl bg-black px-6 py-2.5 text-xs font-bold text-white dark:bg-white dark:text-black"
-                    >
-                      Save Address
-                    </button>
+                  <div className="sm:col-span-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+                    <p className="text-[11px] leading-relaxed text-zinc-500">
+                      Optional: allow location so we can autofill your address. We do not force this — you can type everything manually. You can edit autofilled fields before saving.
+                    </p>
                     <button
                       type="button"
-                      onClick={() => setShowAddressForm(false)}
-                      className="rounded-xl border border-zinc-200 px-6 py-2.5 text-xs font-bold text-zinc-500 dark:border-zinc-800"
+                      onClick={useLiveLocation}
+                      disabled={locating}
+                      className="btn-press mt-3 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-white disabled:opacity-50 dark:bg-white dark:text-black"
                     >
+                      <IoNavigateOutline />
+                      {locating ? "Detecting…" : "Use My Live Location"}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">Full Name *</label>
+                    <input {...register("name", { required: true })} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">Mobile Number *</label>
+                    <input type="tel" placeholder="10-digit mobile" {...register("phone", { required: true })} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                    {errors.phone && <p className="mt-1 text-[10px] text-red-500">Required</p>}
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">House / Flat No.</label>
+                    <input {...register("houseNo")} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">Street / Area *</label>
+                    <input {...register("street", { required: true })} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">Landmark</label>
+                    <input {...register("landmark")} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">City *</label>
+                    <input {...register("city", { required: true })} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">State *</label>
+                    <input {...register("state", { required: true })} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">Country *</label>
+                    <input {...register("country", { required: true })} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5 block">PIN Code *</label>
+                    <input {...register("zipCode", { required: true })} className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                  <input type="hidden" {...register("latitude")} />
+                  <input type="hidden" {...register("longitude")} />
+
+                  <div className="sm:col-span-2 flex gap-3 mt-2">
+                    <button type="submit" className="rounded-xl bg-black px-6 py-2.5 text-xs font-bold text-white dark:bg-white dark:text-black">
+                      Save Address
+                    </button>
+                    <button type="button" onClick={() => setShowAddressForm(false)} className="rounded-xl border border-zinc-200 px-6 py-2.5 text-xs font-bold text-zinc-500 dark:border-zinc-800">
                       Cancel
                     </button>
                   </div>
@@ -368,7 +494,8 @@ const CheckoutPage = () => {
                           )}
                         </div>
                         <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-                          {addr.street}, {addr.city}, {addr.state} - {addr.zipCode}
+                          {[addr.houseNo, addr.street, addr.landmark].filter(Boolean).join(", ")}, {addr.city}, {addr.state} - {addr.zipCode}
+                          {addr.country ? `, ${addr.country}` : ""}
                         </p>
                         <p className="text-zinc-400 dark:text-zinc-500 mt-0.5">Phone: {addr.phone}</p>
                       </div>
@@ -408,10 +535,26 @@ const CheckoutPage = () => {
             {netPayable > 0 && (
               <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                  <IoCardOutline className="text-lg" /> 3. Select Payment Gateway
+                  <IoCardOutline className="text-lg" /> 3. Select Payment Method
                 </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Razorpay — default / primary */}
+                  <label
+                    className={`flex flex-col items-center gap-3 p-4 border rounded-xl cursor-pointer text-center transition-all ${paymentMethod === "Razorpay" ? "border-black dark:border-white bg-zinc-50/50 dark:bg-zinc-900/10 ring-1 ring-black/10 dark:ring-white/10" : "border-zinc-100 dark:border-zinc-900"}`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === "Razorpay"}
+                      onChange={() => setPaymentMethod("Razorpay")}
+                      className="sr-only"
+                    />
+                    <IoPhonePortraitOutline className="text-2xl text-zinc-500" />
+                    <span className="text-xs font-bold">Razorpay</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">UPI · Cards · Netbanking · Wallets</span>
+                  </label>
+
                   {/* COD */}
                   <label
                     className={`flex flex-col items-center gap-3 p-4 border rounded-xl cursor-pointer text-center transition-all ${paymentMethod === "COD" ? "border-black dark:border-white bg-zinc-50/50 dark:bg-zinc-900/10" : "border-zinc-100 dark:border-zinc-900"}`}
@@ -425,36 +568,7 @@ const CheckoutPage = () => {
                     />
                     <IoCashOutline className="text-2xl text-zinc-500" />
                     <span className="text-xs font-bold">Cash On Delivery</span>
-                  </label>
-
-                  {/* Stripe */}
-                  <label
-                    className={`flex flex-col items-center gap-3 p-4 border rounded-xl cursor-pointer text-center transition-all ${paymentMethod === "Stripe" ? "border-black dark:border-white bg-zinc-50/50 dark:bg-zinc-900/10" : "border-zinc-100 dark:border-zinc-900"}`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === "Stripe"}
-                      onChange={() => setPaymentMethod("Stripe")}
-                      className="sr-only"
-                    />
-                    <IoCardOutline className="text-2xl text-zinc-500" />
-                    <span className="text-xs font-bold">Stripe Card</span>
-                  </label>
-
-                  {/* Razorpay */}
-                  <label
-                    className={`flex flex-col items-center gap-3 p-4 border rounded-xl cursor-pointer text-center transition-all ${paymentMethod === "Razorpay" ? "border-black dark:border-white bg-zinc-50/50 dark:bg-zinc-900/10" : "border-zinc-100 dark:border-zinc-900"}`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === "Razorpay"}
-                      onChange={() => setPaymentMethod("Razorpay")}
-                      className="sr-only"
-                    />
-                    <IoCardOutline className="text-2xl text-zinc-500" />
-                    <span className="text-xs font-bold">Razorpay / UPI</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">Pay when your order arrives</span>
                   </label>
                 </div>
               </div>
@@ -527,7 +641,13 @@ const CheckoutPage = () => {
                 className="mt-6 w-full rounded-full bg-black py-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
               >
                 <IoCheckmarkCircleOutline className="text-base" />
-                {isPlacingOrder ? "Placing Order..." : netPayable === 0 ? "Pay via Wallet & Confirm" : `Pay ₹${netPayable} & Confirm`}
+                {isPlacingOrder
+                  ? "Processing..."
+                  : netPayable === 0
+                    ? "Pay via Wallet & Confirm"
+                    : paymentMethod === "Razorpay"
+                      ? `Pay ₹${netPayable} with Razorpay`
+                      : `Place COD Order · ₹${netPayable}`}
               </button>
             </div>
           </div>

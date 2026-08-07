@@ -1,5 +1,7 @@
 import User from "../models/User.js";
 import Product from "../models/Product.js";
+import { normalizeMobile, isValidIndianMobile } from "../utils/mobile.js";
+import { bumpProductCounter } from "../utils/productMetrics.js";
 
 // 1. Get User Profile (req.user populated by auth middleware)
 export const getProfile = async (req, res, next) => {
@@ -48,8 +50,41 @@ export const updateProfile = async (req, res, next) => {
 
     if (name) user.name = name;
     if (email) user.email = email.toLowerCase().trim();
+
     if (mobile !== undefined) {
-      user.mobile = (mobile && mobile.trim() !== "") ? mobile.trim() : undefined;
+      const normalized = normalizeMobile(mobile);
+      if (!normalized) {
+        return res.status(400).json({
+          success: false,
+          message: "Mobile number is compulsory"
+        });
+      }
+      if (!isValidIndianMobile(normalized)) {
+        return res.status(400).json({
+          success: false,
+          message: "Enter a valid 10-digit Indian mobile number"
+        });
+      }
+
+      const taken = await User.findOne({
+        mobile: normalized,
+        _id: { $ne: user._id }
+      });
+      if (taken) {
+        return res.status(400).json({
+          success: false,
+          message: "This mobile number is already linked to another account"
+        });
+      }
+      user.mobile = normalized;
+    }
+
+    // Customers must always keep a mobile number
+    if (user.role === "Customer" && !user.mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number is compulsory for customer accounts"
+      });
     }
 
     await user.save();
@@ -64,10 +99,123 @@ export const updateProfile = async (req, res, next) => {
   }
 };
 
+// 2b. Save notification + location permissions (post-login onboarding)
+export const updatePermissions = async (req, res, next) => {
+  try {
+    const { mobile, notifications, location, completeOnboarding } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (mobile !== undefined) {
+      const normalized = normalizeMobile(mobile);
+      if (!normalized || !isValidIndianMobile(normalized)) {
+        return res.status(400).json({
+          success: false,
+          message: "Enter a valid 10-digit Indian mobile number"
+        });
+      }
+      const taken = await User.findOne({
+        mobile: normalized,
+        _id: { $ne: user._id }
+      });
+      if (taken) {
+        return res.status(400).json({
+          success: false,
+          message: "This mobile number is already linked to another account"
+        });
+      }
+      user.mobile = normalized;
+    }
+
+    if (notifications && typeof notifications === "object") {
+      user.notifications = {
+        permission: ["granted", "denied", "default"].includes(notifications.permission)
+          ? notifications.permission
+          : user.notifications?.permission || "default",
+        enabled: Boolean(notifications.enabled),
+        askedAt: notifications.askedAt ? new Date(notifications.askedAt) : new Date()
+      };
+    }
+
+    if (location && typeof location === "object") {
+      user.location = {
+        permission: ["granted", "denied", "prompt", "unavailable"].includes(location.permission)
+          ? location.permission
+          : user.location?.permission || "prompt",
+        latitude: typeof location.latitude === "number" ? location.latitude : user.location?.latitude,
+        longitude: typeof location.longitude === "number" ? location.longitude : user.location?.longitude,
+        accuracy: typeof location.accuracy === "number" ? location.accuracy : user.location?.accuracy,
+        city: location.city || user.location?.city,
+        updatedAt: new Date()
+      };
+    }
+
+    if (completeOnboarding) {
+      if (!user.mobile) {
+        return res.status(400).json({
+          success: false,
+          message: "Mobile number is compulsory before finishing setup"
+        });
+      }
+      user.permissionsOnboardingCompleted = true;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Preferences saved",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        walletBalance: user.walletBalance,
+        referralCode: user.referralCode,
+        notifications: user.notifications,
+        location: user.location,
+        permissionsOnboardingCompleted: user.permissionsOnboardingCompleted
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // 3. Add Address
 export const addAddress = async (req, res, next) => {
   try {
-    const { name, phone, street, city, state, zipCode, country, isDefault } = req.body;
+    const {
+      name,
+      phone,
+      houseNo,
+      street,
+      landmark,
+      city,
+      state,
+      zipCode,
+      country,
+      latitude,
+      longitude,
+      isDefault
+    } = req.body;
+
+    const { isValidIndianMobile, normalizeIndianMobile, isValidPin } = await import("../utils/cryptoSensitive.js");
+    const mobile = normalizeIndianMobile(phone);
+    if (!isValidIndianMobile(mobile)) {
+      return res.status(400).json({ success: false, message: "Enter a valid 10-digit Indian mobile number" });
+    }
+    if (!name?.trim() || !street?.trim() || !city?.trim() || !state?.trim()) {
+      return res.status(400).json({ success: false, message: "Name, street, city and state are required" });
+    }
+    if (!isValidPin(zipCode)) {
+      return res.status(400).json({ success: false, message: "Enter a valid 6-digit PIN code" });
+    }
+
     const user = await User.findById(req.user._id);
 
     // If making this default, reset other addresses default values
@@ -76,13 +224,17 @@ export const addAddress = async (req, res, next) => {
     }
 
     user.addresses.push({
-      name,
-      phone,
-      street,
-      city,
-      state,
-      zipCode,
+      name: name.trim(),
+      phone: mobile,
+      houseNo: houseNo || "",
+      street: street.trim(),
+      landmark: landmark || "",
+      city: city.trim(),
+      state: state.trim(),
+      zipCode: String(zipCode).trim(),
       country: country || "India",
+      latitude: latitude != null ? Number(latitude) : undefined,
+      longitude: longitude != null ? Number(longitude) : undefined,
       isDefault: isDefault || false
     });
 
@@ -181,9 +333,11 @@ export const addToCart = async (req, res, next) => {
       item => item.product.toString() === productId && item.color === color && item.size === size
     );
 
+    let isNewLine = false;
     if (itemIndex > -1) {
       user.cart[itemIndex].quantity += Number(quantity || 1);
     } else {
+      isNewLine = true;
       user.cart.push({
         product: productId,
         quantity: Number(quantity || 1),
@@ -193,6 +347,9 @@ export const addToCart = async (req, res, next) => {
     }
 
     await user.save();
+    if (isNewLine) {
+      await bumpProductCounter(productId, "cartCount", 1).catch(() => {});
+    }
     
     const populatedUser = await User.findById(req.user._id).populate("cart.product", "title images salePrice mrp stock brand");
 
@@ -218,6 +375,9 @@ export const updateCartItem = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Item not found in cart" });
     }
 
+    const removedProductId =
+      Number(quantity) <= 0 ? user.cart[itemIndex].product : null;
+
     if (Number(quantity) <= 0) {
       user.cart.splice(itemIndex, 1); // remove
     } else {
@@ -225,6 +385,9 @@ export const updateCartItem = async (req, res, next) => {
     }
 
     await user.save();
+    if (removedProductId) {
+      await bumpProductCounter(removedProductId, "cartCount", -1).catch(() => {});
+    }
     const populatedUser = await User.findById(req.user._id).populate("cart.product", "title images salePrice mrp stock brand");
 
     res.status(200).json({
@@ -247,15 +410,17 @@ export const toggleWishlist = async (req, res, next) => {
     const user = await User.findById(req.user._id);
     if (!user.wishlist) user.wishlist = [];
 
-    const wishIndex = user.wishlist.indexOf(productId);
+    const wishIndex = user.wishlist.findIndex((id) => id.toString() === productId.toString());
     let message = "";
 
     if (wishIndex > -1) {
       user.wishlist.splice(wishIndex, 1);
       message = "Product removed from wishlist";
+      await bumpProductCounter(productId, "wishlistCount", -1).catch(() => {});
     } else {
       user.wishlist.push(productId);
       message = "Product added to wishlist";
+      await bumpProductCounter(productId, "wishlistCount", 1).catch(() => {});
     }
 
     await user.save();

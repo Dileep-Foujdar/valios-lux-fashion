@@ -25,12 +25,18 @@ const OrderSchema = new mongoose.Schema({
   shippingAddress: {
     name: { type: String, required: true },
     phone: { type: String, required: true },
+    houseNo: { type: String, default: "" },
     street: { type: String, required: true },
+    landmark: { type: String, default: "" },
     city: { type: String, required: true },
     state: { type: String, required: true },
     zipCode: { type: String, required: true },
-    country: { type: String, required: true }
+    country: { type: String, required: true },
+    latitude: { type: Number },
+    longitude: { type: Number }
   },
+  deliveryAssignment: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryAssignment" },
+  deliveryFee: { type: Number, default: 0 },
   paymentMethod: {
     type: String,
     enum: ["COD", "Stripe", "Razorpay"],

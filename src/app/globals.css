@@ -5,6 +5,52 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(24, 24, 27, 0.22);
+  --scrollbar-thumb-hover: rgba(24, 24, 27, 0.42);
+  --scrollbar-thumb-active: rgba(24, 24, 27, 0.62);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Chromium / Safari / Edge */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,6 +63,9 @@
 :root.dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+  --scrollbar-thumb: rgba(244, 244, 245, 0.22);
+  --scrollbar-thumb-hover: rgba(244, 244, 245, 0.4);
+  --scrollbar-thumb-active: rgba(244, 244, 245, 0.58);
 }
 
 @theme inline {
@@ -42,4 +91,40 @@ body {
 
 .mobile-overlay-bg {
   background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Catalog / listing polish */
+.catalog-page {
+  isolation: isolate;
+}
+
+.catalog-filters {
+  scrollbar-width: thin;
+}
+
+.btn-press {
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.btn-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.filter-drawer {
+  will-change: transform;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

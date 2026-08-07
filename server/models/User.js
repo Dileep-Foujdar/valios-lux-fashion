@@ -4,11 +4,15 @@ import crypto from "crypto";
 const AddressSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true },
+  houseNo: { type: String, default: "" },
   street: { type: String, required: true },
+  landmark: { type: String, default: "" },
   city: { type: String, required: true },
   state: { type: String, required: true },
   zipCode: { type: String, required: true },
   country: { type: String, default: "India" },
+  latitude: { type: Number },
+  longitude: { type: Number },
   isDefault: { type: Boolean, default: false }
 }, { _id: true });
 
@@ -19,9 +23,34 @@ const CartItemSchema = new mongoose.Schema({
   size: { type: String }
 }, { _id: true });
 
+const LocationSchema = new mongoose.Schema({
+  permission: {
+    type: String,
+    enum: ["granted", "denied", "prompt", "unavailable", "manual"],
+    default: "prompt"
+  },
+  latitude: { type: Number },
+  longitude: { type: Number },
+  accuracy: { type: Number },
+  city: { type: String, trim: true },
+  address: { type: String, trim: true },
+  updatedAt: { type: Date }
+}, { _id: false });
+
+const NotificationPrefsSchema = new mongoose.Schema({
+  permission: {
+    type: String,
+    enum: ["granted", "denied", "default"],
+    default: "default"
+  },
+  enabled: { type: Boolean, default: false },
+  askedAt: { type: Date }
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  // Compulsory for customers (enforced in app/API; sparse unique keeps Google/admin bootstraps valid)
   mobile: { type: String, sparse: true, unique: true, trim: true },
   role: {
     type: String,
@@ -35,6 +64,10 @@ const UserSchema = new mongoose.Schema({
   cart: [CartItemSchema],
   wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+  notifications: { type: NotificationPrefsSchema, default: () => ({}) },
+  location: { type: LocationSchema, default: () => ({}) },
+  // After login onboarding (mobile + permission prompts) completed
+  permissionsOnboardingCompleted: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
   password: { type: String },
   createdAt: { type: String, default: () => new Date().toISOString() }

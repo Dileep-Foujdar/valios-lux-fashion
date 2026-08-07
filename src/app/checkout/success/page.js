@@ -124,7 +124,14 @@ const SuccessPage = () => {
                 </div>
                 <div>
                   <h4 className="text-zinc-900 dark:text-white mb-1">Payment Method</h4>
-                  <p className="uppercase">{order?.paymentMethod} ({order?.paymentStatus === 'Paid' ? 'PAID' : 'PENDING COD'})</p>
+                  <p className="uppercase">
+                    {order?.paymentMethod}{" "}
+                    ({order?.paymentStatus === "Paid"
+                      ? "PAID"
+                      : order?.paymentMethod === "COD"
+                        ? "PENDING COD"
+                        : order?.paymentStatus || "PENDING"})
+                  </p>
                 </div>
                 <div>
                   <h4 className="text-zinc-900 dark:text-white mb-1">Total Pricing</h4>

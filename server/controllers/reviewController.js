@@ -1,7 +1,8 @@
+import mongoose from "mongoose";
 import Review from "../models/Review.js";
 import Product from "../models/Product.js";
+import Order from "../models/Order.js";
 
-// Helper to recalculate average ratings and count for a product
 const updateProductRating = async (productId) => {
   const stats = await Review.aggregate([
     { $match: { product: productId } },
@@ -27,7 +28,18 @@ const updateProductRating = async (productId) => {
   }
 };
 
-// 1. Create a Product Review
+const hasVerifiedPurchase = async (userId, productId) => {
+  const order = await Order.findOne({
+    customer: userId,
+    "items.product": productId,
+    $or: [
+      { orderStatus: "Delivered" },
+      { paymentStatus: "Paid", orderStatus: { $nin: ["Cancelled", "Returned"] } }
+    ]
+  }).select("_id");
+  return Boolean(order);
+};
+
 export const createReview = async (req, res, next) => {
   try {
     const { productId, rating, comment, images } = req.body;
@@ -37,27 +49,33 @@ export const createReview = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    // Upsert review (one review per user per product)
+    const verifiedPurchase = await hasVerifiedPurchase(req.user._id, productId);
+
     const review = await Review.findOneAndUpdate(
       { product: productId, user: req.user._id },
-      { rating: Number(rating), comment, images: images || [] },
+      {
+        rating: Number(rating),
+        comment,
+        images: images || [],
+        verifiedPurchase
+      },
       { upsert: true, new: true, runValidators: true }
     );
 
-    // Recalculate average rating
     await updateProductRating(productId);
+
+    const populated = await Review.findById(review._id).populate("user", "name email role");
 
     res.status(201).json({
       success: true,
       message: "Review submitted successfully",
-      review
+      review: populated
     });
   } catch (error) {
     next(error);
   }
 };
 
-// 2. Get Product Reviews
 export const getProductReviews = async (req, res, next) => {
   try {
     const reviews = await Review.find({ product: req.params.productId })
@@ -75,7 +93,38 @@ export const getProductReviews = async (req, res, next) => {
   }
 };
 
-// 3. Delete Review (Admin, Owner, or Author)
+export const getReviewSummary = async (req, res, next) => {
+  try {
+    const productId = req.params.productId;
+    const product = await Product.findById(productId).select("rating reviewCount title");
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    const oid = new mongoose.Types.ObjectId(productId);
+    const distributionAgg = await Review.aggregate([
+      { $match: { product: oid } },
+      { $group: { _id: "$rating", count: { $sum: 1 } } }
+    ]);
+
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    distributionAgg.forEach((row) => {
+      distribution[row._id] = row.count;
+    });
+
+    res.status(200).json({
+      success: true,
+      summary: {
+        averageRating: product.rating || 0,
+        totalReviews: product.reviewCount || 0,
+        distribution
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteReview = async (req, res, next) => {
   try {
     const review = await Review.findById(req.params.id);
@@ -84,7 +133,6 @@ export const deleteReview = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Review not found" });
     }
 
-    // Check permissions
     const isAuthor = review.user.toString() === req.user._id.toString();
     const isAdmin = ["Admin", "Owner", "Super Admin"].includes(req.user.role);
 
@@ -94,8 +142,6 @@ export const deleteReview = async (req, res, next) => {
 
     const productId = review.product;
     await Review.findByIdAndDelete(req.params.id);
-
-    // Recalculate rating
     await updateProductRating(productId);
 
     res.status(200).json({
@@ -107,7 +153,6 @@ export const deleteReview = async (req, res, next) => {
   }
 };
 
-// 4. Reply to a Review (Admin / Owner / Brand official)
 export const replyToReview = async (req, res, next) => {
   try {
     const { comment } = req.body;

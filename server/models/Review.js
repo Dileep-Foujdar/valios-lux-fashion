@@ -11,7 +11,8 @@ const ReviewSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   rating: { type: Number, required: true, min: 1, max: 5 },
   comment: { type: String, required: true },
-  images: [String], // Array of review image URLs
+  images: [String],
+  verifiedPurchase: { type: Boolean, default: false },
   replies: [ReplySchema]
 }, { timestamps: true });
 

@@ -1,426 +1,623 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { io } from "socket.io-client";
 import {
   IoBicycleOutline,
-  IoCompassOutline,
   IoWalletOutline,
   IoCheckboxOutline,
-  IoLocationOutline,
+  IoPersonOutline,
   IoRefreshOutline,
-  IoWarningOutline
+  IoLogOutOutline,
+  IoFlashOutline,
+  IoTimeOutline
 } from "react-icons/io5";
 import toast from "react-hot-toast";
 
-import Navbar from "../../components/Navbar.js";
-import Footer from "../../components/Footer.js";
 import Modal from "../../components/Modal.js";
 import { DashboardSkeleton } from "../../components/Skeleton.js";
 import api from "../../utils/api.js";
+import { clearCredentials } from "../../store/slices/authSlice.js";
+
+const STATUS_BADGE = {
+  available: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  accepted: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  picked_up: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  out_for_delivery: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+  delivered: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  failed: "bg-red-500/15 text-red-300 border-red-500/30",
+  expired: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
+  cancelled: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+};
 
 const DeliveryDashboard = () => {
   const router = useRouter();
+  const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
 
-  // Tab selector: "jobs" | "earnings"
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
-  const [assignedOrders, setAssignedOrders] = useState([]);
-  const [earnings, setEarnings] = useState(null);
+  const [partner, setPartner] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [offers, setOffers] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [deliverOtp, setDeliverOtp] = useState("");
+  const [activeDeliver, setActiveDeliver] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [profileForm, setProfileForm] = useState(null);
 
-  // Deliver action modal
-  const [activeDeliveryOrder, setActiveDeliveryOrder] = useState(null);
-  const [deliveryOtp, setDeliveryOtp] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-
-  // Socket for live tracking
-  const [socket, setSocket] = useState(null);
-  const [activeTrackingOrderId, setActiveTrackingOrderId] = useState(null);
-
-  // ── Fetch helpers (before useEffects) ──
-
-  const fetchDeliveryJobs = async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/delivery/assigned");
-      if (res.data.success) {
-        setAssignedOrders(res.data.orders);
+      const dash = await api.get("/delivery/dashboard");
+      if (dash.data.success) {
+        setPartner(dash.data.partner);
+        setStats(dash.data.stats);
+        setProfileForm({
+          fullName: dash.data.partner.fullName || "",
+          mobile: dash.data.partner.mobile || "",
+          vehicleNumber: dash.data.partner.vehicleNumber || "",
+          vehicleDetails: dash.data.partner.vehicleDetails || "",
+          isOnline: dash.data.partner.isOnline,
+          bank: {
+            accountHolderName: dash.data.partner.bank?.accountHolderName || "",
+            accountNumber: "",
+            ifsc: dash.data.partner.bank?.ifsc || "",
+            bankName: dash.data.partner.bank?.bankName || ""
+          },
+          currentAddress: dash.data.partner.currentAddress || {}
+        });
+      }
+
+      if (dash.data.partner?.approvalStatus === "approved") {
+        const [offersRes, assignRes] = await Promise.all([
+          api.get("/delivery/offers"),
+          api.get("/delivery/assignments")
+        ]);
+        if (offersRes.data.success) setOffers(offersRes.data.offers || []);
+        if (assignRes.data.success) setAssignments(assignRes.data.assignments || []);
       }
     } catch (err) {
-      toast.error("Failed to load assigned orders");
+      if (err.response?.status === 404) {
+        setPartner(null);
+      } else if (err.response?.status !== 401) {
+        toast.error(err.response?.data?.message || "Failed to load dashboard");
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCourierEarnings = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/delivery/earnings");
-      if (res.data.success) {
-        setEarnings(res.data);
-      }
-    } catch (err) {
-      toast.error("Failed to load earnings stats");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Security check: must be delivery partner
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push("/auth");
-    } else if (user && user.role !== "Delivery Partner") {
-      toast.error("Unauthorized access. Courier privileges required.");
-      router.push("/");
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchDeliveryJobs();
+      router.replace("/delivery/login");
+      return;
     }
-  }, [isAuthenticated, user, router]);
-
-  // Tab dynamic load
-  useEffect(() => {
-    if (!user) return;
-    if (activeTab === "jobs") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchDeliveryJobs();
-    } else if (activeTab === "earnings") {
-      fetchCourierEarnings();
+    if (user && user.role !== "Delivery Partner") {
+      toast.error("Delivery partner access only");
+      router.replace("/");
+      return;
     }
-  }, [activeTab, user]);
+    queueMicrotask(() => {
+      loadAll();
+    });
+  }, [isAuthenticated, user, router, loadAll]);
 
-  // Initialize socket connection
   useEffect(() => {
-    if (!user) return;
+    if (!user || partner?.approvalStatus !== "approved") return undefined;
     const socketInstance = io();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSocket(socketInstance);
+    socketInstance.emit("join", { userId: user._id, role: "Delivery Partner" });
+    socketInstance.on("deliveryOffer", () => {
+      toast("New delivery offer available");
+      loadAll();
+    });
+    return () => socketInstance.disconnect();
+  }, [user, partner?.approvalStatus, loadAll]);
 
-    socketInstance.emit("join", { userId: user._id, role: user.role });
+  const logout = () => {
+    dispatch(clearCredentials());
+    router.push("/delivery/login");
+  };
 
-    return () => {
-      socketInstance.disconnect();
-    };
-  }, [user]);
+  const acceptOffer = async (id) => {
+    setBusy(true);
+    try {
+      const res = await api.put(`/delivery/assignments/${id}/accept`);
+      if (res.data.success) {
+        toast.success("Delivery accepted");
+        await loadAll();
+        setTab("current");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not accept");
+      await loadAll();
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  // Simulate Geo-Location Pings
-  useEffect(() => {
-    if (!socket || !activeTrackingOrderId) return;
+  const rejectOffer = async (id) => {
+    const reason = window.prompt("Reason (optional)") || "";
+    setBusy(true);
+    try {
+      await api.put(`/delivery/assignments/${id}/reject`, { reason });
+      toast.success("Offer declined");
+      await loadAll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Reject failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
-    let coords = { lat: 85, lng: 85 };
+  const updateStatus = async (id, status, otp) => {
+    setBusy(true);
+    try {
+      const res = await api.put(`/delivery/assignments/${id}/status`, { status, otp });
+      if (res.data.success) {
+        toast.success(`Marked ${status.replace(/_/g, " ")}`);
+        setActiveDeliver(null);
+        setDeliverOtp("");
+        await loadAll();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
-    const pingInterval = setInterval(() => {
-      coords = {
-        lat: coords.lat > 50 ? coords.lat - 5 : 50,
-        lng: coords.lng > 50 ? coords.lng - 5 : 50
+  const saveProfile = async () => {
+    setBusy(true);
+    try {
+      const payload = {
+        fullName: profileForm.fullName,
+        mobile: profileForm.mobile,
+        vehicleNumber: profileForm.vehicleNumber,
+        vehicleDetails: profileForm.vehicleDetails,
+        isOnline: profileForm.isOnline,
+        currentAddress: profileForm.currentAddress
       };
-
-      socket.emit("updateLocation", {
-        orderId: activeTrackingOrderId,
-        latitude: coords.lat,
-        longitude: coords.lng
-      });
-
-      if (coords.lat === 50 && coords.lng === 50) {
-        clearInterval(pingInterval);
-        setActiveTrackingOrderId(null);
-        toast.success("Destination reached! Geolocation ping complete.");
+      if (profileForm.bank?.accountNumber) {
+        payload.bank = profileForm.bank;
+      } else {
+        payload.bank = {
+          accountHolderName: profileForm.bank.accountHolderName,
+          ifsc: profileForm.bank.ifsc,
+          bankName: profileForm.bank.bankName
+        };
       }
-    }, 5000);
-
-    return () => clearInterval(pingInterval);
-  }, [socket, activeTrackingOrderId]);
-
-  // Accept task
-  const handleAcceptPickup = async (orderId) => {
-    const loadId = toast.loading("Confirming package pickup...");
-    try {
-      const res = await api.put(`/delivery/accept/${orderId}`);
+      const res = await api.put("/delivery/me", payload);
       if (res.data.success) {
-        toast.success("Order picked up. Courier transit mode active.", { id: loadId });
-        fetchDeliveryJobs();
-        
-        // Start live tracking location broadcast
-        setActiveTrackingOrderId(orderId);
+        setPartner(res.data.partner);
+        toast.success("Profile updated");
       }
     } catch (err) {
-      toast.error("Pickup confirmation failed.", { id: loadId });
+      toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+      setBusy(false);
     }
   };
 
-  // Reject task
-  const handleRejectAssignment = async (orderId) => {
-    if (!window.confirm("Return this order back to admin assignment pool?")) return;
+  const currentJobs = assignments.filter((a) =>
+    ["accepted", "picked_up", "out_for_delivery"].includes(a.status)
+  );
+  const history = assignments.filter((a) =>
+    ["delivered", "failed", "cancelled"].includes(a.status)
+  );
 
-    const loadId = toast.loading("Returning assignment...");
-    try {
-      const res = await api.put(`/delivery/reject/${orderId}`);
-      if (res.data.success) {
-        toast.success("Assignment returned successfully", { id: loadId });
-        fetchDeliveryJobs();
+  if (!isAuthenticated || (user && user.role !== "Delivery Partner")) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 p-6">
+        <DashboardSkeleton />
+      </div>
+    );
+  }
+
+  if (!partner) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
+        <IoBicycleOutline className="mb-4 text-4xl text-zinc-400" />
+        <h1 className="font-serif text-2xl">Complete your partner application</h1>
+        <p className="mt-2 max-w-sm text-sm text-zinc-400">
+          Your account exists but the delivery profile is missing. Finish registration to continue.
+        </p>
+        <Link href="/delivery/register" className="mt-6 bg-white px-6 py-3 text-sm font-medium text-black">
+          Continue registration
+        </Link>
+        <button type="button" onClick={logout} className="mt-4 text-xs text-zinc-500">
+          Sign out
+        </button>
+      </div>
+    );
+  }
+
+  if (partner.approvalStatus !== "approved") {
+    const copy = {
+      pending: {
+        title: "Application under review",
+        body: "Thanks for applying. Our team is verifying your documents. You’ll get access to jobs once approved."
+      },
+      draft: {
+        title: "Application incomplete",
+        body: "Finish your registration to submit for approval."
+      },
+      rejected: {
+        title: "Application rejected",
+        body: partner.rejectionReason || "Please contact support or re-apply with corrected documents."
+      },
+      suspended: {
+        title: "Account suspended",
+        body: "Your partner account is suspended. Contact admin for help."
       }
-    } catch (err) {
-      toast.error("Process failed.", { id: loadId });
-    }
-  };
+    }[partner.approvalStatus] || {
+      title: "Awaiting approval",
+      body: "Your partner account is not active yet."
+    };
 
-  // Verify Delivery OTP submit
-  const handleVerifyDeliveryOTP = async (e) => {
-    e.preventDefault();
-    if (!deliveryOtp.trim()) return;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
+        <div className="mb-6 h-px w-16 bg-zinc-700" />
+        <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Kirnya Delivery</p>
+        <h1 className="mt-3 font-serif text-3xl">{copy.title}</h1>
+        <p className="mt-3 max-w-md text-sm text-zinc-400">{copy.body}</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs">
+          <span className="border border-zinc-700 px-3 py-1 text-zinc-400">
+            Email: {partner.emailVerified ? "verified" : "pending"}
+          </span>
+          <span className="border border-zinc-700 px-3 py-1 text-zinc-400">
+            Selfie: {partner.selfieVerification}
+          </span>
+          <span className="border border-zinc-700 px-3 py-1 text-zinc-400">
+            Aadhaar: {partner.aadhaarVerification}
+          </span>
+        </div>
+        {partner.approvalStatus === "draft" && (
+          <Link href="/delivery/register" className="mt-8 bg-white px-6 py-3 text-sm text-black">
+            Continue application
+          </Link>
+        )}
+        <button type="button" onClick={logout} className="mt-6 flex items-center gap-2 text-xs text-zinc-500">
+          <IoLogOutOutline /> Sign out
+        </button>
+      </div>
+    );
+  }
 
-    setIsVerifying(true);
-    const loadId = toast.loading("Verifying OTP drop-off code...");
-    try {
-      const res = await api.put(`/delivery/deliver/${activeDeliveryOrder._id}`, { otp: deliveryOtp.trim() });
-      if (res.data.success) {
-        toast.success("Verification successful! Package drop-off complete.", { id: loadId });
-        setIsVerifying(false);
-        setActiveDeliveryOrder(null);
-        setDeliveryOtp("");
-        fetchDeliveryJobs();
-        
-        // Stop location simulation
-        setActiveTrackingOrderId(null);
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Invalid OTP code", { id: loadId });
-      setIsVerifying(false);
-    }
-  };
+  const tabs = [
+    { id: "overview", label: "Overview", icon: IoFlashOutline },
+    { id: "offers", label: "Offers", icon: IoTimeOutline },
+    { id: "current", label: "Current", icon: IoBicycleOutline },
+    { id: "history", label: "History", icon: IoCheckboxOutline },
+    { id: "profile", label: "Profile", icon: IoPersonOutline }
+  ];
 
   return (
-    <>
-      <Navbar />
-      <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 bg-white dark:bg-black text-zinc-900 dark:text-white transition-colors min-h-[80vh]">
-        
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
-          {/* NAVIGATION SIDEBAR */}
-          <aside className="flex flex-col gap-2.5">
-            <div className="rounded-2xl border border-zinc-100 p-5 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/10 mb-2">
-              <h2 className="text-sm font-bold uppercase tracking-wider truncate">Courier Center</h2>
-              <p className="text-[10px] text-zinc-400 mt-1 uppercase font-bold">{user?.name}</p>
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <header className="sticky top-0 z-20 border-b border-zinc-900/80 bg-zinc-950/90 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Kirnya</p>
+            <h1 className="font-serif text-xl">Partner Dashboard</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={loadAll} className="text-zinc-400 hover:text-white" aria-label="Refresh">
+              <IoRefreshOutline className="text-xl" />
+            </button>
+            <button type="button" onClick={logout} className="text-zinc-400 hover:text-white" aria-label="Logout">
+              <IoLogOutOutline className="text-xl" />
+            </button>
+          </div>
+        </div>
+        <nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-2 pb-2">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={`flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs transition ${
+                tab === id ? "bg-white text-black" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Icon /> {label}
+              {id === "offers" && offers.length > 0 && (
+                <span className="ml-1 bg-amber-400 px-1.5 text-[10px] text-black">{offers.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-6 pb-24">
+        {tab === "overview" && stats && (
+          <div className="space-y-6">
+            <p className="text-sm text-zinc-400">Hi, {partner.fullName}</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Today", value: `₹${stats.todayEarnings || 0}`, icon: IoWalletOutline },
+                { label: "This week", value: `₹${stats.weekEarnings || 0}`, icon: IoWalletOutline },
+                { label: "Completed", value: stats.completedDeliveries || 0, icon: IoCheckboxOutline },
+                { label: "Open offers", value: stats.availableOffers || 0, icon: IoTimeOutline }
+              ].map((k) => (
+                <div key={k.label} className="border border-zinc-800 bg-zinc-900/40 p-4">
+                  <k.icon className="mb-2 text-zinc-500" />
+                  <p className="text-xl font-medium">{k.value}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">{k.label}</p>
+                </div>
+              ))}
             </div>
+            <div className="grid grid-cols-2 gap-3 text-sm text-zinc-400 sm:grid-cols-4">
+              <p>Month: ₹{stats.monthEarnings || 0}</p>
+              <p>Total: ₹{stats.totalEarnings || 0}</p>
+              <p>Active jobs: {stats.pendingDeliveries || 0}</p>
+              <p>Rejected: {stats.rejectedDeliveries || 0}</p>
+            </div>
+            {currentJobs[0] && (
+              <div className="border border-zinc-700 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-500">Current delivery</p>
+                <p className="mt-1 font-medium">{currentJobs[0].order?.orderNumber}</p>
+                <p className="text-sm text-zinc-400">{currentJobs[0].areaLabel || currentJobs[0].order?.shippingAddress?.city}</p>
+                <button type="button" onClick={() => setTab("current")} className="mt-3 text-xs underline text-zinc-300">
+                  Open job
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-            <button
-              onClick={() => setActiveTab("jobs")}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold text-left transition-all ${activeTab === "jobs" ? "bg-black text-white dark:bg-white dark:text-black shadow-md" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-500"}`}
-            >
-              <IoBicycleOutline className="text-base" /> Assigned Delivery Jobs
-            </button>
-
-            <button
-              onClick={() => setActiveTab("earnings")}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold text-left transition-all ${activeTab === "earnings" ? "bg-black text-white dark:bg-white dark:text-black shadow-md" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-500"}`}
-            >
-              <IoWalletOutline className="text-base" /> Courier Earnings
-            </button>
-          </aside>
-
-          {/* DYNAMIC VIEWPORTS */}
-          <div className="lg:col-span-3">
-            
-            {loading ? (
-              <DashboardSkeleton />
+        {tab === "offers" && (
+          <div className="space-y-4">
+            {offers.length === 0 ? (
+              <p className="py-16 text-center text-sm text-zinc-500">No open offers right now</p>
             ) : (
-              <>
-                
-                {/* TAB: ASSIGNED JOBS */}
-                {activeTab === "jobs" && (
-                  <div className="flex flex-col gap-6 animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-zinc-100 pb-4 dark:border-zinc-900">
-                      <h3 className="text-sm font-extrabold uppercase tracking-wider">Active Assignments</h3>
-                      <button onClick={fetchDeliveryJobs} className="text-zinc-500 hover:text-black dark:hover:text-white">
-                        <IoRefreshOutline className="text-lg" />
-                      </button>
+              offers.map((offer) => (
+                <div key={offer._id} className="border border-zinc-800 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{offer.order?.orderNumber || "Order"}</p>
+                      <p className="text-sm text-zinc-400">{offer.areaLabel || "Area TBD"}</p>
+                      <p className="mt-1 text-lg">₹{offer.deliveryFee}</p>
+                      {offer.expiresAt && (
+                        <p className="text-xs text-zinc-500">
+                          Expires {new Date(offer.expiresAt).toLocaleTimeString()}
+                        </p>
+                      )}
                     </div>
+                    <span className={`border px-2 py-0.5 text-[10px] uppercase ${STATUS_BADGE.available}`}>
+                      available
+                    </span>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => acceptOffer(offer._id)}
+                      className="flex-1 bg-white py-2.5 text-sm font-medium text-black disabled:opacity-50"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => rejectOffer(offer._id)}
+                      className="flex-1 border border-zinc-700 py-2.5 text-sm text-zinc-300 disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
 
-                    <div className="flex flex-col gap-6">
-                      {assignedOrders.length === 0 ? (
-                        <div className="border border-dashed border-zinc-150 rounded-2xl p-16 text-center dark:border-zinc-850">
-                          <p className="text-xs text-zinc-400">No active delivery tasks assigned. Check back later.</p>
-                        </div>
-                      ) : (
-                        assignedOrders.map(ord => (
-                          <div
-                            key={ord._id}
-                            className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40 flex flex-col gap-4 animate-scaleUp"
-                          >
-                            {/* Header details */}
-                            <div className="flex justify-between items-center border-b border-zinc-50 pb-3 dark:border-zinc-900">
-                              <div>
-                                <span className="text-[9px] text-zinc-400 font-bold uppercase block">Order Task</span>
-                                <span className="text-xs font-bold uppercase">#{ord.orderNumber}</span>
-                              </div>
-                              <span className="rounded bg-zinc-100 px-2 py-0.5 text-[9px] font-bold text-zinc-600 dark:bg-zinc-900 uppercase">
-                                {ord.orderStatus}
-                              </span>
-                            </div>
-
-                            {/* Customer information */}
-                            <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 flex flex-col gap-2">
-                              <p className="text-zinc-900 dark:text-white flex items-center gap-1">
-                                <IoLocationOutline className="text-base text-zinc-400" />
-                                <span>{ord.shippingAddress.name}</span>
-                              </p>
-                              <p className="pl-5 leading-relaxed">
-                                {ord.shippingAddress.street}, {ord.shippingAddress.city}, {ord.shippingAddress.state} - {ord.shippingAddress.zipCode}
-                              </p>
-                              <p className="pl-5">Phone: {ord.shippingAddress.phone}</p>
-                              <p className="pl-5 text-zinc-900 dark:text-white">
-                                Payment: <strong className="uppercase">{ord.paymentMethod}</strong> (Collect ₹{ord.pricing.total})
-                              </p>
-                            </div>
-
-                            {/* Job actions */}
-                            <div className="flex flex-wrap gap-3 items-center justify-end border-t border-zinc-50 pt-3 dark:border-zinc-900 mt-2">
-                              {/* If courier location is actively tracked */}
-                              {activeTrackingOrderId === ord._id && (
-                                <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mr-auto uppercase">
-                                  <IoCompassOutline className="text-sm animate-spin" /> Broadcasting Live Map Coordinates
-                                </span>
-                              )}
-
-                              {/* Reject/Return assignment */}
-                              {["Confirmed", "Packed"].includes(ord.orderStatus) && (
-                                <button
-                                  onClick={() => handleRejectAssignment(ord._id)}
-                                  className="rounded-full border border-zinc-200 px-4 py-2 text-[10px] font-bold uppercase hover:bg-zinc-50 dark:border-zinc-800"
-                                >
-                                  Reject Pickup
-                                </button>
-                              )}
-
-                              {/* Accept/Transit actions */}
-                              {["Confirmed", "Packed"].includes(ord.orderStatus) && (
-                                <button
-                                  onClick={() => handleAcceptPickup(ord._id)}
-                                  className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black px-5 py-2 text-[10px] font-bold uppercase hover:opacity-90"
-                                >
-                                  Accept Pickup
-                                </button>
-                              )}
-
-                              {/* Out for Delivery transit */}
-                              {ord.orderStatus === "Shipped" && (
-                                <button
-                                  onClick={() => handleUpdateOrderStatus(ord._id, "OutForDelivery")}
-                                  className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black px-5 py-2 text-[10px] font-bold uppercase hover:opacity-90"
-                                >
-                                  Mark Out For Delivery
-                                </button>
-                              )}
-
-                              {/* Mark Delivered */}
-                              {ord.orderStatus === "OutForDelivery" && (
-                                <button
-                                  onClick={() => setActiveDeliveryOrder(ord)}
-                                  className="rounded-full bg-emerald-500 text-white px-5 py-2 text-[10px] font-bold uppercase hover:opacity-90 flex items-center gap-1"
-                                >
-                                  <IoCheckboxOutline /> Complete Drop-off
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))
+        {tab === "current" && (
+          <div className="space-y-4">
+            {currentJobs.length === 0 ? (
+              <p className="py-16 text-center text-sm text-zinc-500">No active delivery</p>
+            ) : (
+              currentJobs.map((job) => {
+                const addr = job.order?.shippingAddress || {};
+                return (
+                  <div key={job._id} className="border border-zinc-800 p-4 space-y-3">
+                    <div className="flex justify-between">
+                      <p className="font-medium">{job.order?.orderNumber}</p>
+                      <span className={`border px-2 py-0.5 text-[10px] uppercase ${STATUS_BADGE[job.status] || ""}`}>
+                        {job.status.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-300">
+                      {[addr.houseNo, addr.street, addr.landmark, addr.city, addr.zipCode]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                    <p className="text-sm text-zinc-500">
+                      Customer: {job.order?.customer?.name} · {job.order?.customer?.mobile}
+                    </p>
+                    <p className="text-sm">Fee: ₹{job.deliveryFee}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {job.status === "accepted" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => updateStatus(job._id, "picked_up")}
+                          className="bg-white px-4 py-2 text-sm text-black disabled:opacity-50"
+                        >
+                          Mark picked up
+                        </button>
+                      )}
+                      {job.status === "picked_up" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => updateStatus(job._id, "out_for_delivery")}
+                          className="bg-white px-4 py-2 text-sm text-black disabled:opacity-50"
+                        >
+                          Out for delivery
+                        </button>
+                      )}
+                      {job.status === "out_for_delivery" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setActiveDeliver(job)}
+                          className="bg-white px-4 py-2 text-sm text-black disabled:opacity-50"
+                        >
+                          Complete with OTP
+                        </button>
                       )}
                     </div>
                   </div>
-                )}
-
-                {/* TAB: COURIER EARNINGS */}
-                {activeTab === "earnings" && earnings && (
-                  <div className="flex flex-col gap-6 animate-fadeIn">
-                    <div className="border-b border-zinc-100 pb-4 dark:border-zinc-900">
-                      <h3 className="text-sm font-extrabold uppercase tracking-wider">Earnings Ledger</h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                        <span className="text-[10px] text-zinc-400 font-bold uppercase block">Completed Deliveries</span>
-                        <h3 className="text-2xl font-black mt-2">{earnings.deliveredCount} Trips</h3>
-                      </div>
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                        <span className="text-[10px] text-zinc-400 font-bold uppercase block">Net payout earnings</span>
-                        <h3 className="text-2xl font-black mt-2 text-emerald-500">₹{earnings.totalEarnings}</h3>
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                      <h4 className="text-xs font-bold uppercase tracking-wider mb-4">Trip log details</h4>
-                      <div className="flex flex-col gap-3">
-                        {earnings.trips?.length === 0 ? (
-                          <p className="text-xs text-zinc-400">No completed trips registered yet.</p>
-                        ) : (
-                          earnings.trips.map((trip, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-xs border-b border-zinc-50 pb-2.5 dark:border-zinc-900">
-                              <div>
-                                <h5 className="font-bold uppercase">Order #{trip.orderNumber}</h5>
-                                <p className="text-[10px] text-zinc-400 mt-0.5">Delivered: {new Date(trip.updatedAt).toLocaleDateString()}</p>
-                              </div>
-                              <span className="font-bold text-green-600">+₹{earnings.payoutPerDelivery} Payout</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              </>
+                );
+              })
             )}
-
           </div>
+        )}
 
-        </div>
+        {tab === "history" && (
+          <div className="space-y-3">
+            {history.length === 0 ? (
+              <p className="py-16 text-center text-sm text-zinc-500">No completed deliveries yet</p>
+            ) : (
+              history.map((job) => (
+                <div key={job._id} className="flex items-center justify-between border border-zinc-800 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">{job.order?.orderNumber}</p>
+                    <p className="text-xs text-zinc-500">
+                      {job.deliveredAt ? new Date(job.deliveredAt).toLocaleString() : job.status}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm">₹{job.deliveryFee}</p>
+                    <span className={`text-[10px] uppercase ${STATUS_BADGE[job.status] || "text-zinc-500"}`}>
+                      {job.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
 
+        {tab === "profile" && profileForm && (
+          <div className="space-y-4">
+            <p className="text-xs text-zinc-500">
+              Aadhaar {partner.aadhaarMasked} · Selfie {partner.selfieVerification} (identity locked after verify)
+            </p>
+            <input
+              className="w-full border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm"
+              value={profileForm.fullName}
+              onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
+              placeholder="Full name"
+            />
+            <input
+              className="w-full border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm"
+              value={profileForm.mobile}
+              onChange={(e) => setProfileForm({ ...profileForm, mobile: e.target.value })}
+              placeholder="Mobile"
+            />
+            <input
+              className="w-full border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm"
+              value={profileForm.vehicleNumber}
+              onChange={(e) => setProfileForm({ ...profileForm, vehicleNumber: e.target.value })}
+              placeholder="Vehicle number"
+            />
+            <textarea
+              className="w-full border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm"
+              rows={2}
+              value={profileForm.vehicleDetails}
+              onChange={(e) => setProfileForm({ ...profileForm, vehicleDetails: e.target.value })}
+              placeholder="Vehicle details"
+            />
+            <p className="text-xs uppercase tracking-wider text-zinc-500">Bank (edits need re-verify)</p>
+            <input
+              className="w-full border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm"
+              value={profileForm.bank.accountHolderName}
+              onChange={(e) =>
+                setProfileForm({
+                  ...profileForm,
+                  bank: { ...profileForm.bank, accountHolderName: e.target.value }
+                })
+              }
+              placeholder="Account holder"
+            />
+            <input
+              className="w-full border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm"
+              value={profileForm.bank.accountNumber}
+              onChange={(e) =>
+                setProfileForm({
+                  ...profileForm,
+                  bank: { ...profileForm.bank, accountNumber: e.target.value }
+                })
+              }
+              placeholder={`New account (current ${partner.bank?.accountMasked || "••••"})`}
+            />
+            <input
+              className="w-full border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm"
+              value={profileForm.bank.ifsc}
+              onChange={(e) =>
+                setProfileForm({
+                  ...profileForm,
+                  bank: { ...profileForm.bank, ifsc: e.target.value }
+                })
+              }
+              placeholder="IFSC"
+            />
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                checked={!!profileForm.isOnline}
+                onChange={(e) => setProfileForm({ ...profileForm, isOnline: e.target.checked })}
+              />
+              Online for offers
+            </label>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={saveProfile}
+              className="w-full bg-white py-3 text-sm font-medium text-black disabled:opacity-50"
+            >
+              Save profile
+            </button>
+          </div>
+        )}
       </main>
 
-      {/* MODAL: VERIFY DELIVERY OTP */}
       <Modal
-        isOpen={!!activeDeliveryOrder}
-        onClose={() => setActiveDeliveryOrder(null)}
-        title="Complete Package Drop-off"
+        isOpen={!!activeDeliver}
+        onClose={() => {
+          setActiveDeliver(null);
+          setDeliverOtp("");
+        }}
+        title="Confirm delivery"
       >
-        <form onSubmit={handleVerifyDeliveryOTP} className="flex flex-col gap-5 text-xs">
-          <div className="rounded-2xl bg-zinc-50 p-4 border border-zinc-100 dark:bg-zinc-900/50 dark:border-zinc-900">
-            <p className="text-xs text-zinc-500">
-              Please collect cash payment (if COD: <strong className="text-zinc-900 dark:text-white">₹{activeDeliveryOrder?.pricing?.total}</strong>) from the customer, then request their 6-digit delivery OTP to verify drop-off.
-            </p>
-          </div>
-
-          <div>
-            <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">
-              Enter Customer Delivery OTP
-            </label>
-            <input
-              type="text"
-              maxLength={6}
-              placeholder="######"
-              value={deliveryOtp}
-              onChange={(e) => setDeliveryOtp(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 text-center text-sm font-bold tracking-[0.4em] outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isVerifying}
-            className="w-full rounded-xl bg-black py-3.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-zinc-800 dark:bg-white dark:text-black"
-          >
-            {isVerifying ? "Verifying..." : "Confirm & Mark Delivered"}
-          </button>
-        </form>
+        <p className="mb-4 text-sm text-zinc-400">
+          Enter the OTP shared by the customer for {activeDeliver?.order?.orderNumber}
+        </p>
+        <input
+          className="mb-4 w-full border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-center tracking-[0.3em]"
+          maxLength={6}
+          value={deliverOtp}
+          onChange={(e) => setDeliverOtp(e.target.value)}
+          placeholder="OTP"
+        />
+        <button
+          type="button"
+          disabled={busy || deliverOtp.length < 6}
+          onClick={() => updateStatus(activeDeliver._id, "delivered", deliverOtp)}
+          className="w-full bg-white py-3 text-sm font-medium text-black disabled:opacity-50"
+        >
+          Mark delivered
+        </button>
       </Modal>
-
-      <Footer />
-    </>
+    </div>
   );
 };
 

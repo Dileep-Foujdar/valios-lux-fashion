@@ -15,6 +15,10 @@ import { ProductDetailSkeleton } from "../../../components/Skeleton.js";
 import { localToggleWishlist } from "../../../store/slices/wishlistSlice.js";
 import { localAddToCart } from "../../../store/slices/cartSlice.js";
 import api from "../../../utils/api.js";
+import {
+  resolveProductVisibility,
+  getActiveProductBadges
+} from "../../../utils/productDisplay.js";
 
 const ProductDetailClient = ({ productId }) => {
   const router = useRouter();
@@ -22,11 +26,13 @@ const ProductDetailClient = ({ productId }) => {
 
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const wishlistItems = useSelector((state) => state.wishlist.items) || [];
+  const globalVisibility = useSelector((state) => state.settings.productVisibility);
   const isWishlisted = wishlistItems.some(item => item._id === productId);
 
   const [product, setProduct] = useState(null);
   const [related, setRelated] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Gallery tabs: "images" | "video" | "360"
@@ -52,22 +58,31 @@ const ProductDetailClient = ({ productId }) => {
     const fetchProductDetails = async () => {
       setLoading(true);
       try {
-        const [prodRes, revRes] = await Promise.all([
+        const [prodRes, revRes, summaryRes] = await Promise.all([
           api.get(`/products/${productId}`),
-          api.get(`/reviews/${productId}`)
+          api.get(`/reviews/${productId}`),
+          api.get(`/reviews/${productId}/summary`).catch(() => null)
         ]);
 
         if (prodRes.data.success) {
-          setProduct(prodRes.data.product);
+          const prod = prodRes.data.product;
+          setProduct(prod);
           setRelated(prodRes.data.relatedProducts || []);
-          
-          // Pre-select first color/size
-          if (prodRes.data.product.colors?.length > 0) setSelectedColor(prodRes.data.product.colors[0]);
-          if (prodRes.data.product.sizes?.length > 0) setSelectedSize(prodRes.data.product.sizes[0]);
+
+          if (prod.colorVariants?.length > 0) {
+            setSelectedColor(prod.colorVariants[0].name);
+          } else if (prod.colors?.length > 0) {
+            setSelectedColor(prod.colors[0]);
+          }
+          if (prod.sizes?.length > 0) setSelectedSize(prod.sizes[0]);
+          setSelectedImageIdx(0);
         }
 
         if (revRes.data.success) {
           setReviews(revRes.data.reviews);
+        }
+        if (summaryRes?.data?.success) {
+          setReviewSummary(summaryRes.data.summary);
         }
       } catch (err) {
         console.error("Fetch details error:", err);
@@ -79,6 +94,21 @@ const ProductDetailClient = ({ productId }) => {
     fetchProductDetails();
   }, [productId]);
 
+  const galleryImages = (() => {
+    if (!product) return [];
+    if (product.colorVariants?.length > 0) {
+      const match = product.colorVariants.find((v) => v.name === selectedColor);
+      if (match?.images?.length) return match.images;
+      return product.colorVariants[0]?.images || product.images || [];
+    }
+    return product.images || [];
+  })();
+
+  const selectColor = (color) => {
+    setSelectedColor(color);
+    setSelectedImageIdx(0);
+  };
+
   // Image Magnifier Hover Math
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -86,7 +116,7 @@ const ProductDetailClient = ({ productId }) => {
     const y = ((e.pageY - top - window.scrollY) / height) * 100;
     setZoomStyle({
       display: "block",
-      backgroundImage: `url(${product.images[selectedImageIdx]})`,
+      backgroundImage: `url(${galleryImages[selectedImageIdx]})`,
       backgroundPosition: `${x}% ${y}%`,
       backgroundSize: "200%"
     });
@@ -181,9 +211,12 @@ const ProductDetailClient = ({ productId }) => {
         setCommentInput("");
         setReviewImages([]);
         
-        // Refresh reviews list
-        const revRes = await api.get(`/reviews/${productId}`);
+        const [revRes, summaryRes] = await Promise.all([
+          api.get(`/reviews/${productId}`),
+          api.get(`/reviews/${productId}/summary`)
+        ]);
         if (revRes.data.success) setReviews(revRes.data.reviews);
+        if (summaryRes.data.success) setReviewSummary(summaryRes.data.summary);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Submit failed. Try again.", { id: loadId });
@@ -221,7 +254,7 @@ const ProductDetailClient = ({ productId }) => {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={product.images?.[selectedImageIdx]}
+                        src={galleryImages?.[selectedImageIdx]}
                         alt={product.title}
                         className="h-full w-full object-cover"
                       />
@@ -303,9 +336,9 @@ const ProductDetailClient = ({ productId }) => {
                 {/* Gallery Thumbnails */}
                 {activeMediaTab === "images" && (
                   <div className="grid grid-cols-4 gap-3 mt-2">
-                    {product.images?.map((img, idx) => (
+                    {galleryImages?.map((img, idx) => (
                       <button
-                        key={idx}
+                        key={`${img}-${idx}`}
                         onClick={() => setSelectedImageIdx(idx)}
                         className={`relative aspect-square overflow-hidden rounded-xl bg-zinc-50 dark:bg-zinc-900 border transition-all ${selectedImageIdx === idx ? "border-black dark:border-white" : "border-transparent"}`}
                       >
@@ -319,41 +352,71 @@ const ProductDetailClient = ({ productId }) => {
 
               {/* RIGHT COLUMN: INFORMATION & CONFIG */}
               <div className="flex flex-col gap-6">
+                {(() => {
+                  const visibility = resolveProductVisibility(product, globalVisibility);
+                  const badges = getActiveProductBadges(product);
+                  return (
+                <>
                 <div>
-                  <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
-                    {product.brand}
-                  </span>
+                  {visibility.brand && (
+                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                      {product.brand}
+                    </span>
+                  )}
                   <h1 className="text-2xl sm:text-3xl font-extrabold uppercase mt-1 tracking-tight text-zinc-900 dark:text-white">
                     {product.title}
                   </h1>
-                  
-                  {/* Rating Stars summary */}
-                  <div className="flex items-center gap-2 mt-3">
-                    <div className="flex text-amber-500 text-sm">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <span key={i}>{i < Math.round(product.rating) ? "★" : "☆"}</span>
+
+                  {badges.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {badges.map((b) => (
+                        <span
+                          key={b.key}
+                          className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase text-white"
+                          style={{ backgroundColor: b.color || "#111" }}
+                        >
+                          {b.label}
+                        </span>
                       ))}
                     </div>
-                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                      {product.rating} / 5
-                    </span>
-                    <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                      ({reviews.length} Verified Customer Reviews)
-                    </span>
+                  )}
+                  
+                  {(visibility.ratings || visibility.reviews) && (
+                  <div className="flex items-center gap-2 mt-3">
+                    {visibility.ratings && (
+                      <>
+                        <div className="flex text-amber-500 text-sm">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i}>{i < Math.round(product.rating) ? "★" : "☆"}</span>
+                          ))}
+                        </div>
+                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                          {product.rating} / 5
+                        </span>
+                      </>
+                    )}
+                    {visibility.reviews && (
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                        ({reviews.length} Verified Customer Reviews)
+                      </span>
+                    )}
                   </div>
+                  )}
                 </div>
 
                 {/* Pricing block */}
                 <div className="rounded-2xl bg-zinc-50 p-6 border border-zinc-100 dark:bg-zinc-900/40 dark:border-zinc-900">
                   <div className="flex items-baseline gap-3">
-                    <span className="text-3xl font-black text-zinc-900 dark:text-white">₹{product.salePrice}</span>
-                    {product.mrp > product.salePrice && (
-                      <>
-                        <span className="text-sm text-zinc-400 line-through dark:text-zinc-500">₹{product.mrp}</span>
-                        <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded dark:bg-red-950/20">
-                          {product.discount}% OFF
-                        </span>
-                      </>
+                    {visibility.offerPrice && (
+                      <span className="text-3xl font-black text-zinc-900 dark:text-white">₹{product.salePrice}</span>
+                    )}
+                    {visibility.originalPrice && product.mrp > product.salePrice && (
+                      <span className="text-sm text-zinc-400 line-through dark:text-zinc-500">₹{product.mrp}</span>
+                    )}
+                    {visibility.discount && product.mrp > product.salePrice && (
+                      <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded dark:bg-red-950/20">
+                        {product.discount}% OFF
+                      </span>
                     )}
                   </div>
                   <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-2 font-medium">Inclusive of all taxes & local GST. Delivery calculated at checkout.</p>
@@ -362,27 +425,41 @@ const ProductDetailClient = ({ productId }) => {
                 {/* Dynamic Configuration Selection */}
                 <div className="flex flex-col gap-4 border-y border-zinc-100 py-6 dark:border-zinc-900">
                   {/* Colors */}
-                  {product.colors?.length > 0 && (
+                  {visibility.colors && (product.colorVariants?.length > 0 || product.colors?.length > 0) && (
                     <div>
                       <h4 className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-3">
                         Select Color
                       </h4>
-                      <div className="flex gap-2.5">
-                        {product.colors.map(col => (
-                          <button
-                            key={col}
-                            onClick={() => setSelectedColor(col)}
-                            className={`rounded-full px-4 py-2 border text-xs font-bold transition-all ${selectedColor === col ? "border-black bg-zinc-950 text-white dark:border-white dark:bg-white dark:text-zinc-950" : "border-zinc-200 text-zinc-500 dark:border-zinc-800"}`}
-                          >
-                            {col}
-                          </button>
-                        ))}
+                      <div className="flex flex-wrap gap-2.5">
+                        {(product.colorVariants?.length > 0
+                          ? product.colorVariants.map((v) => (
+                              <button
+                                key={v.name}
+                                onClick={() => selectColor(v.name)}
+                                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 border text-xs font-bold transition-all ${selectedColor === v.name ? "border-black bg-zinc-950 text-white dark:border-white dark:bg-white dark:text-zinc-950" : "border-zinc-200 text-zinc-500 dark:border-zinc-800"}`}
+                              >
+                                <span
+                                  className="h-3.5 w-3.5 rounded-full border border-white/40"
+                                  style={{ backgroundColor: v.code || "#111" }}
+                                />
+                                {v.name}
+                              </button>
+                            ))
+                          : product.colors.map((col) => (
+                              <button
+                                key={col}
+                                onClick={() => selectColor(col)}
+                                className={`rounded-full px-4 py-2 border text-xs font-bold transition-all ${selectedColor === col ? "border-black bg-zinc-950 text-white dark:border-white dark:bg-white dark:text-zinc-950" : "border-zinc-200 text-zinc-500 dark:border-zinc-800"}`}
+                              >
+                                {col}
+                              </button>
+                            )))}
                       </div>
                     </div>
                   )}
 
                   {/* Sizes */}
-                  {product.sizes?.length > 0 && (
+                  {visibility.sizes && product.sizes?.length > 0 && (
                     <div className="mt-2">
                       <h4 className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-3">
                         Select Size
@@ -424,34 +501,45 @@ const ProductDetailClient = ({ productId }) => {
                           +
                         </button>
                       </div>
-                      <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500">
-                        {product.stock} items available in stock
-                      </span>
+                      {visibility.stockStatus && (
+                        <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500">
+                          {product.stock > 0 ? "In stock" : "Out of stock"}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* ACTION BUTTONS */}
                 <div className="flex gap-4">
-                  <button
-                    onClick={() => handleAddToCart(false)}
-                    className="flex-1 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 py-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 dark:text-white transition-colors"
-                  >
-                    <IoBagAddOutline className="text-base" /> Add to Cart
-                  </button>
-                  <button
-                    onClick={() => handleAddToCart(true)}
-                    className="flex-1 rounded-full bg-black py-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200 transition-colors"
-                  >
-                    Buy Now
-                  </button>
-                  <button
-                    onClick={handleWishlistToggle}
-                    className={`h-14 w-14 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 transition-colors dark:border-zinc-800 dark:hover:bg-zinc-900 ${isWishlisted ? "text-red-500" : "text-zinc-400 dark:text-zinc-500"}`}
-                  >
-                    {isWishlisted ? <IoHeart className="text-xl" /> : <IoHeartOutline className="text-xl" />}
-                  </button>
+                  {visibility.addToCart && (
+                    <button
+                      onClick={() => handleAddToCart(false)}
+                      className="flex-1 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 py-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 dark:text-white transition-colors"
+                    >
+                      <IoBagAddOutline className="text-base" /> Add to Cart
+                    </button>
+                  )}
+                  {visibility.buyNow && (
+                    <button
+                      onClick={() => handleAddToCart(true)}
+                      className="flex-1 rounded-full bg-black py-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200 transition-colors"
+                    >
+                      Buy Now
+                    </button>
+                  )}
+                  {visibility.wishlist && (
+                    <button
+                      onClick={handleWishlistToggle}
+                      className={`h-14 w-14 rounded-full border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 transition-colors dark:border-zinc-800 dark:hover:bg-zinc-900 ${isWishlisted ? "text-red-500" : "text-zinc-400 dark:text-zinc-500"}`}
+                    >
+                      {isWishlisted ? <IoHeart className="text-xl" /> : <IoHeartOutline className="text-xl" />}
+                    </button>
+                  )}
                 </div>
+                </>
+                  );
+                })()}
               </div>
 
             </div>
@@ -465,6 +553,7 @@ const ProductDetailClient = ({ productId }) => {
                 </p>
               </div>
 
+              {resolveProductVisibility(product, globalVisibility).specifications && (
               <div>
                 <h3 className="text-sm font-extrabold uppercase tracking-wider mb-4">Specifications</h3>
                 <table className="w-full text-xs font-semibold text-zinc-600 dark:text-zinc-400">
@@ -475,16 +564,20 @@ const ProductDetailClient = ({ productId }) => {
                         <td className="py-2.5 text-right font-bold text-zinc-800 dark:text-zinc-200">{spec.value}</td>
                       </tr>
                     ))}
+                    {resolveProductVisibility(product, globalVisibility).sku && (
                     <tr className="border-b border-zinc-100 dark:border-zinc-900">
                       <td className="py-2.5 text-zinc-400 uppercase tracking-wide text-[10px]">SKU Code</td>
                       <td className="py-2.5 text-right font-bold text-zinc-850 dark:text-zinc-250 uppercase">{product.sku}</td>
                     </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
 
             {/* REVIEWS & VERIFIED CUSTOMER FEEDBACK */}
+            {resolveProductVisibility(product, globalVisibility).reviews && (
             <div className="border-t border-zinc-100 pt-16 dark:border-zinc-900">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                 
@@ -568,8 +661,40 @@ const ProductDetailClient = ({ productId }) => {
                 <div className="lg:col-span-2 flex flex-col gap-6">
                   <div>
                     <h3 className="text-sm font-extrabold uppercase tracking-wider">Customer Reviews</h3>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">Showing all verified customer inputs</p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mt-1">
+                      {reviewSummary
+                        ? `${reviewSummary.averageRating} average · ${reviewSummary.totalReviews} reviews`
+                        : "Customer feedback"}
+                    </p>
                   </div>
+
+                  {reviewSummary && (
+                    <div className="rounded-2xl border border-zinc-100 p-4 dark:border-zinc-900">
+                      <div className="mb-3 flex items-end gap-3">
+                        <span className="text-3xl font-black">{reviewSummary.averageRating}</span>
+                        <span className="pb-1 text-xs font-semibold text-zinc-500">
+                          {reviewSummary.totalReviews} total reviews
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {[5, 4, 3, 2, 1].map((star) => {
+                          const count = reviewSummary.distribution?.[star] || 0;
+                          const pct = reviewSummary.totalReviews
+                            ? Math.round((count / reviewSummary.totalReviews) * 100)
+                            : 0;
+                          return (
+                            <div key={star} className="flex items-center gap-2 text-[11px] font-semibold">
+                              <span className="w-6">{star}★</span>
+                              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                                <div className="h-full bg-amber-400" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="w-8 text-right text-zinc-400">{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {reviews.length === 0 ? (
                     <div className="border border-dashed border-zinc-100 rounded-2xl p-10 text-center dark:border-zinc-900">
@@ -581,7 +706,14 @@ const ProductDetailClient = ({ productId }) => {
                         <div key={rev._id} className="border-b border-zinc-50 pb-6 dark:border-zinc-900 flex flex-col gap-3">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{rev.user.name}</h4>
+                              <h4 className="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                                {rev.user?.name || "Customer"}
+                                {rev.verifiedPurchase && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                                    Verified Purchase
+                                  </span>
+                                )}
+                              </h4>
                               <div className="flex text-amber-500 text-[10px] mt-0.5">
                                 {Array.from({ length: 5 }).map((_, idx) => (
                                   <span key={idx}>{idx < rev.rating ? "★" : "☆"}</span>
@@ -631,6 +763,7 @@ const ProductDetailClient = ({ productId }) => {
 
               </div>
             </div>
+            )}
 
             {/* RELATED PRODUCTS */}
             {related.length > 0 && (

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { useForm } from "react-hook-form";
 import { io } from "socket.io-client";
@@ -11,11 +11,10 @@ import {
   IoHardwareChipOutline,
   IoPeopleOutline,
   IoSettingsOutline,
-  IoAlertCircleOutline,
-  IoAddCircleOutline,
-  IoTrashOutline,
-  IoCreateOutline,
-  IoChatbubbleEllipsesOutline
+  IoChatbubbleEllipsesOutline,
+  IoAlbumsOutline,
+  IoBicycleOutline,
+  IoNavigateOutline
 } from "react-icons/io5";
 import toast from "react-hot-toast";
 
@@ -24,13 +23,25 @@ import Footer from "../../components/Footer.js";
 import Modal from "../../components/Modal.js";
 import { DashboardSkeleton } from "../../components/Skeleton.js";
 import api from "../../utils/api.js";
+import AnalyticsDashboard from "../../components/admin/AnalyticsDashboard.js";
+import ProductInventory from "../../components/admin/ProductInventory.js";
+import CatalogManager from "../../components/admin/CatalogManager.js";
+import DeliveryOps from "../../components/admin/DeliveryOps.js";
+import { DEFAULT_PRODUCT_VISIBILITY, VISIBILITY_LABELS } from "../../utils/productDisplay.js";
 
-const AdminDashboard = () => {
+const AdminDashboardInner = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
 
-  // Dashboard state tabs: "stats" | "orders" | "inventory" | "users" | "settings"
-  const [activeTab, setActiveTab] = useState("stats");
+  // Dashboard tabs from URL
+  const VALID_TABS = ["stats", "orders", "inventory", "catalog", "partners", "deliveries", "users", "settings"];
+  const tabParam = searchParams.get("tab");
+  const activeTab = VALID_TABS.includes(tabParam) ? tabParam : "stats";
+  const setActiveTab = (tab) => {
+    const next = VALID_TABS.includes(tab) ? tab : "stats";
+    router.replace(`/admin?tab=${next}`, { scroll: false });
+  };
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
 
@@ -241,8 +252,6 @@ const AdminDashboard = () => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchAdminOrders();
       fetchDeliveryPartners();
-    } else if (activeTab === "inventory") {
-      fetchAdminProducts();
     } else if (activeTab === "users") {
       fetchAdminUsers();
     } else if (activeTab === "settings") {
@@ -414,6 +423,27 @@ const AdminDashboard = () => {
             </button>
 
             <button
+              onClick={() => setActiveTab("catalog")}
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold text-left transition-all ${activeTab === "catalog" ? "bg-black text-white dark:bg-white dark:text-black shadow-md" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-500"}`}
+            >
+              <IoAlbumsOutline className="text-base" /> Catalog Manager
+            </button>
+
+            <button
+              onClick={() => setActiveTab("partners")}
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold text-left transition-all ${activeTab === "partners" ? "bg-black text-white dark:bg-white dark:text-black shadow-md" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-500"}`}
+            >
+              <IoBicycleOutline className="text-base" /> Delivery Partners
+            </button>
+
+            <button
+              onClick={() => setActiveTab("deliveries")}
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold text-left transition-all ${activeTab === "deliveries" ? "bg-black text-white dark:bg-white dark:text-black shadow-md" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-500"}`}
+            >
+              <IoNavigateOutline className="text-base" /> Delivery Management
+            </button>
+
+            <button
               onClick={() => setActiveTab("users")}
               className={`flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold text-left transition-all ${activeTab === "users" ? "bg-black text-white dark:bg-white dark:text-black shadow-md" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-500"}`}
             >
@@ -431,92 +461,20 @@ const AdminDashboard = () => {
           {/* CONTENT AREA */}
           <div className="lg:col-span-4">
             
-            {loading ? (
+            {activeTab === "stats" ? (
+              <AnalyticsDashboard />
+            ) : activeTab === "inventory" ? (
+              <ProductInventory />
+            ) : activeTab === "catalog" ? (
+              <CatalogManager />
+            ) : activeTab === "partners" ? (
+              <DeliveryOps section="partners" />
+            ) : activeTab === "deliveries" ? (
+              <DeliveryOps section="deliveries" />
+            ) : loading ? (
               <DashboardSkeleton />
             ) : (
               <>
-                
-                {/* TAB: ANALYTICS */}
-                {activeTab === "stats" && stats && (
-                  <div className="flex flex-col gap-8 animate-fadeIn">
-                    <div className="border-b border-zinc-100 pb-4 dark:border-zinc-900">
-                      <h3 className="text-sm font-extrabold uppercase tracking-wider">Business Health Metrics</h3>
-                    </div>
-
-                    {/* Stats Grids */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                        <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Gross Sales</span>
-                        <span className="text-2xl font-black text-zinc-900 dark:text-white block mt-2">₹{stats.revenue}</span>
-                      </div>
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                        <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Total Orders</span>
-                        <span className="text-2xl font-black text-zinc-900 dark:text-white block mt-2">{stats.ordersCount}</span>
-                      </div>
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                        <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Active Customers</span>
-                        <span className="text-2xl font-black text-zinc-900 dark:text-white block mt-2">{stats.customersCount}</span>
-                      </div>
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                        <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Low Stock Alerts</span>
-                        <span className={`text-2xl font-black block mt-2 ${stats.lowStockCount > 0 ? "text-red-500" : "text-emerald-500"}`}>{stats.lowStockCount}</span>
-                      </div>
-                    </div>
-
-                    {/* Charts & Stocks */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* CSS / SVG Bar graph representation */}
-                      <div className="rounded-3xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40 lg:col-span-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider mb-6">Sales Volume Velocity</h4>
-                        
-                        <div className="flex items-end justify-between h-48 pt-6 border-b border-zinc-100 dark:border-zinc-900">
-                          {stats.graphData?.length === 0 ? (
-                            <p className="text-xs text-zinc-400 text-center w-full pb-10">No monthly sales data available</p>
-                          ) : (
-                            stats.graphData.map((data, i) => {
-                              const maxVal = Math.max(...stats.graphData.map(d => d.sales)) || 1;
-                              const heightPercent = Math.round((data.sales / maxVal) * 80) + 10; // scale between 10% and 90%
-                              return (
-                                <div key={i} className="flex flex-col items-center flex-1 group relative">
-                                  {/* Tooltip */}
-                                  <div className="absolute bottom-full mb-2 bg-black text-white text-[10px] rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                    ₹{data.sales} ({data.orders} orders)
-                                  </div>
-                                  <div
-                                    style={{ height: `${heightPercent}%` }}
-                                    className="w-8 sm:w-10 bg-zinc-900 rounded-t-lg group-hover:bg-zinc-700 transition-all dark:bg-white dark:group-hover:bg-zinc-200"
-                                  />
-                                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold mt-2">{data.name}</span>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Low Stock Alerts */}
-                      <div className="rounded-3xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-900 dark:bg-zinc-950/40">
-                        <h4 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-1"><IoAlertCircleOutline className="text-red-500 text-lg" /> Low Stock Alerts</h4>
-                        <div className="flex flex-col gap-4">
-                          {stats.lowStockAlerts?.length === 0 ? (
-                            <p className="text-xs text-zinc-400">All products are well stocked.</p>
-                          ) : (
-                            stats.lowStockAlerts.map(prod => (
-                              <div key={prod._id} className="flex justify-between items-center text-xs border-b border-zinc-50 pb-2.5 dark:border-zinc-900">
-                                <div>
-                                  <h5 className="font-bold truncate max-w-[150px]">{prod.title}</h5>
-                                  <p className="text-[10px] text-zinc-400 mt-0.5">SKU: {prod.sku}</p>
-                                </div>
-                                <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-extrabold text-red-600 dark:bg-red-950/20">{prod.stock} left</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                )}
 
                 {/* TAB: MANAGE ORDERS */}
                 {activeTab === "orders" && (
@@ -619,72 +577,6 @@ const AdminDashboard = () => {
                   </div>
                 )}
 
-                {/* TAB: PRODUCT INVENTORY */}
-                {activeTab === "inventory" && (
-                  <div className="flex flex-col gap-6 animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-zinc-100 pb-4 dark:border-zinc-900">
-                      <h3 className="text-sm font-extrabold uppercase tracking-wider">Catalog Inventory</h3>
-                      <button
-                        onClick={() => setIsAddProductOpen(true)}
-                        className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-black px-4 py-2 text-[10px] font-bold uppercase tracking-wider hover:opacity-90 flex items-center gap-1"
-                      >
-                        <IoAddCircleOutline className="text-sm" /> Add Product
-                      </button>
-                    </div>
-
-                    {/* Table view */}
-                    <div className="overflow-x-auto rounded-2xl border border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950/40">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="border-b border-zinc-100 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/10 text-zinc-400 font-bold uppercase text-[9px] tracking-wider">
-                            <th className="p-4">Product Details</th>
-                            <th className="p-4">SKU Code</th>
-                            <th className="p-4 text-center">Stock</th>
-                            <th className="p-4 text-right">Sale Price</th>
-                            <th className="p-4 text-center">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {products.map(prod => (
-                            <tr key={prod._id} className="border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/20 dark:hover:bg-zinc-900/10">
-                              <td className="p-4 flex items-center gap-3">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={prod.images?.[0]} alt="" className="h-10 w-8 rounded object-cover flex-shrink-0" />
-                                <div>
-                                  <h4 className="font-bold truncate max-w-[180px]">{prod.title}</h4>
-                                  <span className="text-[10px] text-zinc-400 uppercase font-semibold">{prod.brand}</span>
-                                </div>
-                              </td>
-                              <td className="p-4 font-semibold uppercase">{prod.sku}</td>
-                              <td className="p-4 text-center font-bold">{prod.stock}</td>
-                              <td className="p-4 text-right font-bold">₹{prod.salePrice}</td>
-                              <td className="p-4">
-                                <div className="flex gap-3 justify-center text-zinc-500">
-                                  <button
-                                    onClick={() => {
-                                      setEditingProduct(prod);
-                                      setIsEditProductOpen(true);
-                                    }}
-                                    className="hover:text-black dark:hover:text-white text-base"
-                                  >
-                                    <IoCreateOutline />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteProduct(prod._id)}
-                                    className="hover:text-red-500 text-base"
-                                  >
-                                    <IoTrashOutline />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
                 {/* TAB: USER ACCOUNTS */}
                 {activeTab === "users" && (
                   <div className="flex flex-col gap-6 animate-fadeIn">
@@ -745,7 +637,154 @@ const AdminDashboard = () => {
                       System Credentials & Config
                     </h3>
 
-                    <form onSubmit={handleUpdateSettings} className="flex flex-col gap-6 max-w-2xl">
+                    <form onSubmit={handleUpdateSettings} className="flex flex-col gap-6 max-w-3xl">
+                      {/* Product visibility defaults */}
+                      <div className="flex flex-col gap-3">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                          Global Product Visibility
+                        </h4>
+                        <p className="text-[11px] text-zinc-500">
+                          Defaults for every product. Individual products can override these in the product editor.
+                        </p>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {Object.keys(DEFAULT_PRODUCT_VISIBILITY).map((key) => {
+                            const visibility = {
+                              ...DEFAULT_PRODUCT_VISIBILITY,
+                              ...(websiteSettings.productVisibility || {})
+                            };
+                            return (
+                              <label
+                                key={key}
+                                className="flex items-center justify-between gap-3 rounded-xl border border-zinc-100 px-3 py-2 text-xs font-semibold dark:border-zinc-800"
+                              >
+                                <span>{VISIBILITY_LABELS[key] || key}</span>
+                                <input
+                                  type="checkbox"
+                                  checked={visibility[key] !== false}
+                                  onChange={(e) =>
+                                    setWebsiteSettings({
+                                      ...websiteSettings,
+                                      productVisibility: {
+                                        ...visibility,
+                                        [key]: e.target.checked
+                                      }
+                                    })
+                                  }
+                                  className="h-4 w-4"
+                                />
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <hr className="border-zinc-100 dark:border-zinc-900" />
+
+                      {/* Badge library */}
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                            Product Badge Library
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setWebsiteSettings({
+                                ...websiteSettings,
+                                badgeLibrary: [
+                                  ...(websiteSettings.badgeLibrary || []),
+                                  {
+                                    key: `badge_${Date.now()}`,
+                                    label: "New Badge",
+                                    color: "#111111",
+                                    icon: "",
+                                    priority: 100,
+                                    enabled: true
+                                  }
+                                ]
+                              })
+                            }
+                            className="rounded-lg bg-zinc-100 px-2 py-1 text-[10px] font-bold uppercase dark:bg-zinc-900"
+                          >
+                            Add Badge
+                          </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {(websiteSettings.badgeLibrary || []).map((badge, index) => (
+                            <div
+                              key={`${badge.key}-${index}`}
+                              className="grid grid-cols-2 gap-2 rounded-xl border border-zinc-100 p-3 sm:grid-cols-6 dark:border-zinc-800"
+                            >
+                              <input
+                                value={badge.label || ""}
+                                onChange={(e) => {
+                                  const next = [...(websiteSettings.badgeLibrary || [])];
+                                  next[index] = { ...badge, label: e.target.value };
+                                  setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
+                                }}
+                                placeholder="Label"
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold dark:border-zinc-800 dark:bg-zinc-900"
+                              />
+                              <input
+                                value={badge.key || ""}
+                                onChange={(e) => {
+                                  const next = [...(websiteSettings.badgeLibrary || [])];
+                                  next[index] = { ...badge, key: e.target.value };
+                                  setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
+                                }}
+                                placeholder="Key"
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold dark:border-zinc-800 dark:bg-zinc-900"
+                              />
+                              <input
+                                type="color"
+                                value={badge.color || "#111111"}
+                                onChange={(e) => {
+                                  const next = [...(websiteSettings.badgeLibrary || [])];
+                                  next[index] = { ...badge, color: e.target.value };
+                                  setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
+                                }}
+                                className="h-9 w-full cursor-pointer rounded-lg border border-zinc-200 dark:border-zinc-800"
+                              />
+                              <input
+                                type="number"
+                                value={badge.priority ?? 100}
+                                onChange={(e) => {
+                                  const next = [...(websiteSettings.badgeLibrary || [])];
+                                  next[index] = { ...badge, priority: Number(e.target.value) };
+                                  setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
+                                }}
+                                placeholder="Priority"
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold dark:border-zinc-800 dark:bg-zinc-900"
+                              />
+                              <label className="flex items-center gap-2 text-[11px] font-semibold">
+                                <input
+                                  type="checkbox"
+                                  checked={badge.enabled !== false}
+                                  onChange={(e) => {
+                                    const next = [...(websiteSettings.badgeLibrary || [])];
+                                    next[index] = { ...badge, enabled: e.target.checked };
+                                    setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
+                                  }}
+                                />
+                                Enabled
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = (websiteSettings.badgeLibrary || []).filter((_, i) => i !== index);
+                                  setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
+                                }}
+                                className="rounded-lg text-[10px] font-bold uppercase text-red-500"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <hr className="border-zinc-100 dark:border-zinc-900" />
+
                       {/* SEO */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <h4 className="sm:col-span-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
@@ -1159,5 +1198,11 @@ const AdminDashboard = () => {
     </>
   );
 };
+
+const AdminDashboard = () => (
+  <Suspense fallback={<DashboardSkeleton />}>
+    <AdminDashboardInner />
+  </Suspense>
+);
 
 export default AdminDashboard;

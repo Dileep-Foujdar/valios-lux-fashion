@@ -5,6 +5,7 @@ import User from "../models/User.js";
 import WebsiteSettings from "../models/WebsiteSettings.js";
 import { sendEmail, emailTemplates } from "../utils/email.js";
 import { sendSMS, smsTemplates } from "../utils/sms.js";
+import { applyOrderSalesMetrics } from "../utils/productMetrics.js";
 
 // Helper to calculate total pricing details
 const calculateOrderPricing = async (items, couponCode) => {
@@ -82,6 +83,23 @@ export const createOrder = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Please provide shipping address" });
     }
 
+    const { isValidIndianMobile, normalizeIndianMobile, isValidPin } = await import("../utils/cryptoSensitive.js");
+    const phone = normalizeIndianMobile(shippingAddress.phone);
+    if (!isValidIndianMobile(phone)) {
+      return res.status(400).json({ success: false, message: "A valid mobile number is required for delivery" });
+    }
+    if (!shippingAddress.name?.trim() || !shippingAddress.street?.trim() || !shippingAddress.city?.trim() || !shippingAddress.state?.trim()) {
+      return res.status(400).json({ success: false, message: "Incomplete shipping address" });
+    }
+    if (!isValidPin(shippingAddress.zipCode)) {
+      return res.status(400).json({ success: false, message: "Enter a valid 6-digit PIN code" });
+    }
+
+    shippingAddress.phone = phone;
+    shippingAddress.country = shippingAddress.country || "India";
+    shippingAddress.houseNo = shippingAddress.houseNo || "";
+    shippingAddress.landmark = shippingAddress.landmark || "";
+
     // Calculate pricing details
     let pricing;
     try {
@@ -149,6 +167,11 @@ export const createOrder = async (req, res, next) => {
 
     // Clear user cart
     await User.findByIdAndUpdate(req.user._id, { $set: { cart: [] } });
+
+    // Fully wallet-paid orders count as sales immediately
+    if (finalTotal === 0) {
+      await applyOrderSalesMetrics(populatedOrder).catch(() => {});
+    }
 
     // Send confirmations if COD (or fully paid by wallet)
     if (paymentMethod === "COD" || finalTotal === 0) {
@@ -353,10 +376,15 @@ export const updateOrderStatus = async (req, res, next) => {
       }
 
       if (status === "Delivered") {
+        const becamePaid = order.paymentMethod === "COD" && order.paymentStatus !== "Paid";
         if (order.paymentMethod === "COD") {
           order.paymentStatus = "Paid";
         }
         order.otpForDelivery = undefined; // clear delivery OTP
+
+        if (becamePaid) {
+          await applyOrderSalesMetrics(order).catch(() => {});
+        }
         
         if (customer && customer.mobile) {
           await sendSMS({
@@ -450,6 +478,9 @@ export const returnOrReplaceOrder = async (req, res, next) => {
       if (order.paymentStatus === "Paid") {
         await User.findByIdAndUpdate(order.customer, { $inc: { walletBalance: order.pricing.total } });
         order.paymentStatus = "Refunded";
+        await applyOrderSalesMetrics(order, { returned: true, refund: true }).catch(() => {});
+      } else {
+        await applyOrderSalesMetrics(order, { returned: true }).catch(() => {});
       }
     }
 
