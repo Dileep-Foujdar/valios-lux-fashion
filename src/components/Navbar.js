@@ -234,7 +234,7 @@ const Navbar = () => {
             {/* LOGO */}
             <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Kirnya Logo" className="h-7 sm:h-9 xl:h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
+              <img src="/logo.png" alt="Kirnya Logo" className="h-15 scale-105 sm:h-9 xl:h-18 w-auto object-cover" />
               <div className="flex flex-col flex-shrink-0">
                 <span
                   className="text-base sm:text-xl xl:text-2xl font-black tracking-tight uppercase leading-none"

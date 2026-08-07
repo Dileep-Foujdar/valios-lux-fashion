@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { DEFAULT_PRODUCT_VISIBILITY } from "../../utils/productDisplay.js";
 
 const initialState = {
   theme: "system",
@@ -22,6 +23,13 @@ const initialState = {
   },
   taxPercentage: {
     gst: 18
+  },
+  productVisibility: { ...DEFAULT_PRODUCT_VISIBILITY },
+  badgeLibrary: [],
+  storefront: {
+    showProductCounts: false,
+    showCategoryCounts: false,
+    showBrandCounts: false
   }
 };
 
@@ -30,9 +38,18 @@ const settingsSlice = createSlice({
   initialState,
   reducers: {
     setStorefrontSettings: (state, action) => {
+      const payload = action.payload || {};
       return {
         ...state,
-        ...action.payload
+        ...payload,
+        productVisibility: {
+          ...DEFAULT_PRODUCT_VISIBILITY,
+          ...(payload.productVisibility || state.productVisibility || {})
+        },
+        storefront: {
+          ...state.storefront,
+          ...(payload.storefront || {})
+        }
       };
     },
     updateThemePreference: (state, action) => {

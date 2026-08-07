@@ -5,8 +5,8 @@ import Order from "../models/Order.js";
 import User from "../models/User.js";
 import { sendEmail, emailTemplates } from "../utils/email.js";
 import { sendSMS, smsTemplates } from "../utils/sms.js";
+import { applyOrderSalesMetrics } from "../utils/productMetrics.js";
 
-// Initialize Stripe if keys are valid
 const getStripe = () => {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.includes("mock_stripe")) {
@@ -20,11 +20,15 @@ const getStripe = () => {
   }
 };
 
-// Initialize Razorpay if keys are valid
 const getRazorpay = () => {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || keyId.includes("mock_key_id") || !keySecret || keySecret.includes("mock_razorpay_secret")) {
+  if (
+    !keyId ||
+    keyId.includes("mock_key_id") ||
+    !keySecret ||
+    keySecret.includes("mock_razorpay_secret")
+  ) {
     return null;
   }
   try {
@@ -38,7 +42,15 @@ const getRazorpay = () => {
   }
 };
 
-// 1. Process Stripe Payment
+const assertOrderOwner = (order, userId) => {
+  if (!order.customer || order.customer.toString() !== userId.toString()) {
+    const err = new Error("Not authorized to pay for this order");
+    err.statusCode = 403;
+    throw err;
+  }
+};
+
+// 1. Process Stripe Payment (legacy / optional)
 export const processStripePayment = async (req, res, next) => {
   try {
     const { orderId } = req.body;
@@ -48,10 +60,11 @@ export const processStripePayment = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
+    assertOrderOwner(order, req.user._id);
+
     const stripe = getStripe();
     const amountInCents = Math.round(order.pricing.total * 100);
 
-    // If Stripe is mock, return a successful mock checkout payload
     if (!stripe) {
       console.log(`> [MOCK STRIPE] Creating checkout session for Order #${order.orderNumber}`);
       return res.status(200).json({
@@ -61,7 +74,6 @@ export const processStripePayment = async (req, res, next) => {
       });
     }
 
-    // Live Stripe session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -70,7 +82,7 @@ export const processStripePayment = async (req, res, next) => {
             currency: "inr",
             product_data: {
               name: `Kirnya Fashion Order #${order.orderNumber}`,
-              description: order.items.map(i => i.product.title).join(", ")
+              description: order.items.map((i) => i.product.title).join(", ")
             },
             unit_amount: amountInCents
           },
@@ -93,7 +105,7 @@ export const processStripePayment = async (req, res, next) => {
   }
 };
 
-// 2. Process Razorpay Payment (Create Order)
+// 2. Create Razorpay order for checkout
 export const processRazorpayPayment = async (req, res, next) => {
   try {
     const { orderId } = req.body;
@@ -103,14 +115,34 @@ export const processRazorpayPayment = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    const rzp = getRazorpay();
-    const amountInPaise = Math.round(order.pricing.total * 100);
+    assertOrderOwner(order, req.user._id);
 
-    // If Razorpay is mock
+    if (order.paymentStatus === "Paid") {
+      return res.status(400).json({ success: false, message: "Order is already paid" });
+    }
+
+    if (order.paymentMethod !== "Razorpay") {
+      return res.status(400).json({
+        success: false,
+        message: "This order is not set for Razorpay payment"
+      });
+    }
+
+    const amountInPaise = Math.round(Number(order.pricing?.total || 0) * 100);
+    if (!amountInPaise || amountInPaise < 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment amount for Razorpay"
+      });
+    }
+
+    const rzp = getRazorpay();
+
+    // Dev fallback when live keys are not configured
     if (!rzp) {
-      console.log(`> [MOCK RAZORPAY] Creating order object for Order #${order.orderNumber}`);
-      const mockRzpOrderId = `mock_rzp_order_${Date.now()}`;
-      
+      console.log(`> [MOCK RAZORPAY] Creating order for #${order.orderNumber}`);
+      const mockRzpOrderId = `order_mock_${Date.now()}`;
+
       order.paymentDetails = {
         paymentGatewayOrderId: mockRzpOrderId
       };
@@ -123,15 +155,21 @@ export const processRazorpayPayment = async (req, res, next) => {
         amount: amountInPaise,
         currency: "INR",
         orderId: mockRzpOrderId,
-        internalOrderId: order._id
+        internalOrderId: order._id,
+        orderNumber: order.orderNumber,
+        message: "Razorpay keys are mock/missing. Using mock checkout. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET for live payments."
       });
     }
 
-    // Live Razorpay order
     const options = {
       amount: amountInPaise,
       currency: "INR",
-      receipt: order.orderNumber,
+      receipt: String(order.orderNumber).slice(0, 40),
+      notes: {
+        internalOrderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        customerId: req.user._id.toString()
+      },
       payment_capture: 1
     };
 
@@ -149,84 +187,132 @@ export const processRazorpayPayment = async (req, res, next) => {
       amount: rzpOrder.amount,
       currency: rzpOrder.currency,
       orderId: rzpOrder.id,
-      internalOrderId: order._id
+      internalOrderId: order._id,
+      orderNumber: order.orderNumber
     });
   } catch (error) {
     next(error);
   }
 };
 
-// 3. Verify Payment Signature (Webhook / Client confirm)
+// 3. Verify payment (Razorpay signature / Stripe session)
 export const verifyPayment = async (req, res, next) => {
   try {
-    const { gateway, orderId, stripeSessionId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
+    const {
+      gateway,
+      orderId,
+      stripeSessionId,
+      razorpayPaymentId,
+      razorpayOrderId,
+      razorpaySignature
+    } = req.body;
+
     const order = await Order.findById(orderId).populate("items.product", "title");
 
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
+    assertOrderOwner(order, req.user._id);
+
+    if (order.paymentStatus === "Paid") {
+      return res.status(200).json({
+        success: true,
+        message: "Payment already verified",
+        order
+      });
+    }
+
     let isSuccess = false;
+    let paymentDetails = order.paymentDetails || {};
 
     if (gateway === "stripe") {
-      // For Stripe, verify session status
       const stripe = getStripe();
       if (!stripe) {
-        // Mock verification
         if (stripeSessionId && stripeSessionId.startsWith("mock_stripe")) {
           isSuccess = true;
-          order.paymentDetails = { transactionId: stripeSessionId };
+          paymentDetails = { transactionId: stripeSessionId };
         }
       } else {
         const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
         if (session.payment_status === "paid") {
           isSuccess = true;
-          order.paymentDetails = {
-            transactionId: session.payment_intent ? session.payment_intent.toString() : stripeSessionId
+          paymentDetails = {
+            transactionId: session.payment_intent
+              ? session.payment_intent.toString()
+              : stripeSessionId
           };
         }
       }
     } else if (gateway === "razorpay") {
+      if (!razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing Razorpay payment verification fields"
+        });
+      }
+
+      // Ensure client is verifying against the order we created
+      if (
+        order.paymentDetails?.paymentGatewayOrderId &&
+        order.paymentDetails.paymentGatewayOrderId !== razorpayOrderId
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Razorpay order mismatch"
+        });
+      }
+
       const rzp = getRazorpay();
       if (!rzp) {
-        // Mock verification
-        if (razorpayPaymentId && razorpayOrderId) {
+        if (String(razorpayOrderId).startsWith("order_mock_")) {
           isSuccess = true;
-          order.paymentDetails = {
+          paymentDetails = {
             transactionId: razorpayPaymentId,
             paymentGatewayOrderId: razorpayOrderId,
             signature: razorpaySignature || "mock_signature"
           };
         }
       } else {
-        // Live HMAC verification
-        const text = razorpayOrderId + "|" + razorpayPaymentId;
-        const generated_signature = crypto
+        const text = `${razorpayOrderId}|${razorpayPaymentId}`;
+        const generatedSignature = crypto
           .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
           .update(text)
           .digest("hex");
 
-        if (generated_signature === razorpaySignature) {
+        if (generatedSignature === razorpaySignature) {
           isSuccess = true;
-          order.paymentDetails = {
+          paymentDetails = {
             transactionId: razorpayPaymentId,
             paymentGatewayOrderId: razorpayOrderId,
             signature: razorpaySignature
           };
         }
       }
+    } else {
+      return res.status(400).json({ success: false, message: "Unsupported payment gateway" });
     }
 
     if (isSuccess) {
+      const confirmMessage =
+        gateway === "razorpay"
+          ? "Payment received via Razorpay. Order confirmed."
+          : "Payment received. Order confirmed.";
+
+      const wasUnpaid = order.paymentStatus !== "Paid";
       order.paymentStatus = "Paid";
       order.orderStatus = "Confirmed";
+      order.paymentDetails = paymentDetails;
       order.trackingHistory.push({
         status: "Confirmed",
-        message: "Payment received. Order confirmed."
+        message: confirmMessage
       });
       await order.save();
 
-      // Send Confirmation Alerts
+      if (wasUnpaid) {
+        await applyOrderSalesMetrics(order).catch(() => {});
+      }
+
       const customer = await User.findById(order.customer);
       if (customer) {
         await sendEmail({
@@ -241,7 +327,6 @@ export const verifyPayment = async (req, res, next) => {
         });
       }
 
-      // Notify Socket.io
       if (req.io) {
         req.io.emit("newOrder", {
           orderNumber: order.orderNumber,
@@ -256,6 +341,9 @@ export const verifyPayment = async (req, res, next) => {
         order
       });
     }
+
+    order.paymentStatus = "Failed";
+    await order.save();
 
     res.status(400).json({
       success: false,

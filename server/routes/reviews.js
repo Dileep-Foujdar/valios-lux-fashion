@@ -2,6 +2,7 @@ import express from "express";
 import {
   createReview,
   getProductReviews,
+  getReviewSummary,
   deleteReview,
   replyToReview
 } from "../controllers/reviewController.js";
@@ -10,14 +11,12 @@ import { validateBody } from "../middleware/validate.js";
 
 const router = express.Router();
 
-// Public feedback retrieval
+router.get("/:productId/summary", getReviewSummary);
 router.get("/:productId", getProductReviews);
 
-// Authenticated feedback actions
 router.post("/", isAuthenticated, validateBody(["productId", "rating", "comment"]), createReview);
 router.delete("/:id", isAuthenticated, deleteReview);
 
-// Admin or Owner replies to reviews
 router.post(
   "/:id/reply",
   isAuthenticated,

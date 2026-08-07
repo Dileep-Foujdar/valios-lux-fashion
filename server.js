@@ -67,8 +67,16 @@ nextApp.prepare().then(() => {
   // Backend API Routing
   app.use("/api", apiRouter);
 
+  // Never let unmatched /api calls fall through to Next.js HTML 404 pages
+  app.use("/api", (req, res) => {
+    res.status(404).json({
+      success: false,
+      message: `API route not found: ${req.method} ${req.originalUrl}`
+    });
+  });
+
   // Next.js Frontend Page Routing (should be loaded after API routes)
-  app.all("*", (req, res) => {
+  app.all(/.*/, (req, res) => {
     return nextHandler(req, res);
   });
 
@@ -90,6 +98,7 @@ nextApp.prepare().then(() => {
       }
       if (role === "Delivery Partner") {
         socket.join("delivery_room");
+        if (userId) socket.join(`partner_${userId}`);
       }
       console.log(`> Socket ${socket.id} joined rooms: user_${userId || 'guest'}, role_${role || 'guest'}`);
     });
