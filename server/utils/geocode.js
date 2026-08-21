@@ -33,6 +33,8 @@ export const reverseGeocode = async (latitude, longitude) => {
   const state = a.state || "";
   const country = a.country || "India";
   const zipCode = a.postcode || "";
+  const displayName = data.display_name || "";
+  const formatted = [houseNo, street, city, state, zipCode].filter(Boolean).join(", ") || displayName;
 
   return {
     houseNo,
@@ -44,6 +46,42 @@ export const reverseGeocode = async (latitude, longitude) => {
     zipCode,
     latitude: lat,
     longitude: lng,
-    displayName: data.display_name || ""
+    displayName,
+    formatted
+  };
+};
+
+/**
+ * Lookup Indian PIN → city/state via India Post public API.
+ */
+export const lookupPincode = async (pin) => {
+  const zip = String(pin || "").trim();
+  if (!/^\d{6}$/.test(zip)) {
+    throw new Error("Enter a valid 6-digit PIN code");
+  }
+
+  const res = await fetch(`https://api.postalpincode.in/pincode/${zip}`, {
+    headers: { Accept: "application/json" }
+  });
+  if (!res.ok) {
+    throw new Error("PIN lookup failed");
+  }
+  const data = await res.json();
+  const block = Array.isArray(data) ? data[0] : null;
+  if (!block || block.Status !== "Success" || !Array.isArray(block.PostOffice) || !block.PostOffice.length) {
+    throw new Error("PIN code not found");
+  }
+  const po = block.PostOffice[0];
+  return {
+    zipCode: zip,
+    city: po.District || po.Block || po.Name || "",
+    state: po.State || "",
+    country: po.Country || "India",
+    area: po.Name || "",
+    offices: block.PostOffice.map((o) => ({
+      name: o.Name,
+      district: o.District,
+      state: o.State
+    }))
   };
 };

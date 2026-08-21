@@ -10,7 +10,8 @@ import {
   getInventoryStats,
   exportProducts,
   bulkProducts,
-  getProductAnalytics
+  getProductAnalytics,
+  getRelatedProducts
 } from "../controllers/productController.js";
 import { isAuthenticated, authorizeRoles } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -25,6 +26,7 @@ router.get("/inventory-stats", ...adminOnly, getInventoryStats);
 router.get("/export", ...adminOnly, exportProducts);
 router.post("/bulk", ...adminOnly, validateBody(["action", "ids"]), bulkProducts);
 router.get("/:id/analytics", ...adminOnly, getProductAnalytics);
+router.get("/:id/related", getRelatedProducts);
 router.get("/:id", getProductById);
 
 router.post(

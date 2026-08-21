@@ -4,6 +4,7 @@ import Category from "../models/Category.js";
 import CatalogItem from "../models/CatalogItem.js";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
+import { parseBool, resolveProductSort } from "../utils/queryHelpers.js";
 
 const slugify = (text = "") =>
   String(text)
@@ -138,19 +139,29 @@ const buildProductQuery = async (reqQuery) => {
 
   if (rating) queryObj.rating = { $gte: Number(rating) };
 
-  if (featured === "true") queryObj.featured = true;
-  if (trending === "true") queryObj.trending = true;
-  if (bestSeller === "true") queryObj.bestSeller = true;
-  if (latest === "true") queryObj.latest = true;
-  if (newArrival === "true") queryObj.newArrival = true;
-  if (offerProduct === "true") queryObj.offerProduct = true;
+  // Boolean flags — accept true / "true" / 1 / "yes"
+  if (parseBool(featured)) queryObj.featured = true;
+  if (parseBool(trending)) queryObj.trending = true;
+  if (parseBool(bestSeller)) queryObj.bestSeller = true;
+  if (parseBool(offerProduct)) queryObj.offerProduct = true;
+
+  // newArrival OR latest → either flag true
+  if (parseBool(newArrival) || parseBool(latest)) {
+    const newFlag = { $or: [{ newArrival: true }, { latest: true }] };
+    if (queryObj.$or) {
+      // Keep search $or and combine with new-arrival flag via $and
+      queryObj.$and = [{ $or: queryObj.$or }, newFlag];
+      delete queryObj.$or;
+    } else {
+      Object.assign(queryObj, newFlag);
+    }
+  }
 
   if (status === "draft" || status === "published") {
     queryObj.status = status;
-  } else if (publishedOnly === "true") {
+  } else if (parseBool(publishedOnly)) {
     queryObj.status = { $ne: "draft" };
-  } else if (reqQuery.includeDrafts !== "true") {
-    // Public catalog hides drafts by default
+  } else if (!parseBool(reqQuery.includeDrafts)) {
     queryObj.status = { $ne: "draft" };
   }
 
@@ -167,7 +178,7 @@ const buildProductQuery = async (reqQuery) => {
     queryObj.stock = { $gt: 0 };
   }
 
-  if (hasDiscount === "true" || Number(minDiscount) > 0) {
+  if (parseBool(hasDiscount) || Number(minDiscount) > 0) {
     const floor = Number(minDiscount) > 0 ? Number(minDiscount) : 1;
     queryObj.discount = { $gte: floor };
   }
@@ -180,32 +191,31 @@ export const getProducts = async (req, res, next) => {
     const { sort, page = 1, limit = 12 } = req.query;
     const queryObj = await buildProductQuery(req.query);
 
-    let apiQuery = Product.find(queryObj).populate("category", "name slug subcategories");
-
-    if (sort === "price-low") apiQuery = apiQuery.sort({ salePrice: 1 });
-    else if (sort === "price-high") apiQuery = apiQuery.sort({ salePrice: -1 });
-    else if (sort === "rating") apiQuery = apiQuery.sort({ rating: -1, reviewCount: -1 });
-    else if (sort === "newest") apiQuery = apiQuery.sort({ createdAt: -1 });
-    else if (sort === "discount") apiQuery = apiQuery.sort({ discount: -1 });
-    else if (sort === "sold" || sort === "bestselling") apiQuery = apiQuery.sort({ soldCount: -1 });
-    else if (sort === "popular") apiQuery = apiQuery.sort({ viewCount: -1, soldCount: -1 });
-    else if (sort === "featured") apiQuery = apiQuery.sort({ featured: -1, createdAt: -1 });
-    else apiQuery = apiQuery.sort({ createdAt: -1 });
-
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 12;
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 12));
     const skip = (pageNum - 1) * limitNum;
 
-    const totalProducts = await Product.countDocuments(queryObj);
-    const products = await apiQuery.skip(skip).limit(limitNum);
+    const sortSpec = resolveProductSort(sort);
+    const total = await Product.countDocuments(queryObj);
+    const pages = Math.max(1, Math.ceil(total / limitNum));
+
+    const products = await Product.find(queryObj)
+      .populate("category", "name slug subcategories")
+      .sort(sortSpec)
+      .skip(skip)
+      .limit(limitNum);
 
     res.status(200).json({
       success: true,
+      products,
       count: products.length,
-      totalProducts,
-      totalPages: Math.ceil(totalProducts / limitNum) || 1,
-      currentPage: pageNum,
-      products
+      total,
+      page: pageNum,
+      pages,
+      // Back-compat aliases for older web clients
+      totalProducts: total,
+      totalPages: pages,
+      currentPage: pageNum
     });
   } catch (error) {
     next(error);
@@ -393,6 +403,28 @@ export const getProductById = async (req, res, next) => {
       product,
       relatedProducts
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getRelatedProducts = async (req, res, next) => {
+  try {
+    const product = await Product.findById(req.params.id).select("category");
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found", code: "NOT_FOUND" });
+    }
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 6));
+    const relatedProducts = await Product.find({
+      category: product.category,
+      _id: { $ne: product._id },
+      status: { $ne: "draft" }
+    })
+      .limit(limit)
+      .populate("category", "name slug")
+      .select("title images salePrice mrp brand rating discount featured newArrival");
+
+    res.status(200).json({ success: true, relatedProducts, count: relatedProducts.length });
   } catch (error) {
     next(error);
   }

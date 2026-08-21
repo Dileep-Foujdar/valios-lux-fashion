@@ -6,32 +6,48 @@ import WebsiteSettings from "../models/WebsiteSettings.js";
 import { sendEmail, emailTemplates } from "../utils/email.js";
 import { sendSMS, smsTemplates } from "../utils/sms.js";
 import { applyOrderSalesMetrics } from "../utils/productMetrics.js";
+import { parseBool } from "../utils/queryHelpers.js";
 
 // Helper to calculate total pricing details
 const calculateOrderPricing = async (items, couponCode) => {
   let subtotal = 0;
-  
+  const pricedItems = [];
+
   // Calculate subtotal and verify stock
   for (const item of items) {
-    const product = await Product.findById(item.product);
+    const productId = item.product || item.productId;
+    const product = await Product.findById(productId);
     if (!product) throw new Error(`Product not found`);
     if (product.stock < item.quantity) {
-      throw new Error(`Insufficient stock for ${product.title}. Only ${product.stock} items left.`);
+      const err = new Error(`Insufficient stock for ${product.title}. Only ${product.stock} items left.`);
+      err.code = "OUT_OF_STOCK";
+      throw err;
     }
-    subtotal += product.salePrice * item.quantity;
+    const linePrice = product.salePrice * item.quantity;
+    subtotal += linePrice;
     item.price = product.salePrice; // Keep track of checkout price
+    item.product = productId;
+    pricedItems.push({
+      product: productId,
+      title: product.title,
+      quantity: item.quantity,
+      price: product.salePrice,
+      lineTotal: linePrice,
+      color: item.color || "",
+      size: item.size || ""
+    });
   }
 
   // Load website settings
   let gstPercent = 18;
   let defaultCharge = 99;
   let minFreeDelivery = 999;
-  
+
   const settings = await WebsiteSettings.findOne();
   if (settings) {
-    gstPercent = settings.taxPercentage.gst || 18;
-    defaultCharge = settings.deliveryCharges.defaultCharge || 99;
-    minFreeDelivery = settings.deliveryCharges.minAmountForFreeDelivery || 999;
+    gstPercent = settings.taxPercentage?.gst || 18;
+    defaultCharge = settings.deliveryCharges?.defaultCharge || 99;
+    minFreeDelivery = settings.deliveryCharges?.minAmountForFreeDelivery || 999;
   }
 
   // Calculate taxes and shipping
@@ -40,6 +56,7 @@ const calculateOrderPricing = async (items, couponCode) => {
 
   // Coupon Discount
   let couponDiscount = 0;
+  let couponApplied = null;
   if (couponCode) {
     const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
     if (coupon) {
@@ -54,20 +71,95 @@ const calculateOrderPricing = async (items, couponCode) => {
           } else {
             couponDiscount = coupon.value;
           }
+          couponApplied = coupon.code;
         }
       }
     }
   }
 
-  const total = subtotal + gst + shipping - couponDiscount;
+  const total = Math.max(0, subtotal + gst + shipping - couponDiscount);
 
   return {
     subtotal,
     gst,
     shipping,
     couponDiscount,
-    total
+    total,
+    gstPercent,
+    freeShippingThreshold: minFreeDelivery,
+    couponApplied,
+    items: pricedItems
   };
+};
+
+/** Preview checkout totals without placing an order */
+export const previewOrder = async (req, res, next) => {
+  try {
+    let { items, couponCode, useWallet } = req.body || {};
+
+    // Allow preview from current cart when items omitted
+    if (!items || items.length === 0) {
+      const user = await User.findById(req.user._id).populate("cart.product", "salePrice stock title");
+      items = (user.cart || [])
+        .filter((c) => c.product && c.product._id)
+        .map((c) => ({
+          product: c.product._id,
+          quantity: c.quantity,
+          color: c.color,
+          size: c.size
+        }));
+    }
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ success: false, message: "No items to preview", code: "EMPTY_CART" });
+    }
+
+    let pricing;
+    try {
+      pricing = await calculateOrderPricing(items, couponCode);
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+        code: err.code || "PRICING_ERROR"
+      });
+    }
+
+    let walletUsed = 0;
+    let amountToPay = pricing.total;
+    const user = await User.findById(req.user._id).select("walletBalance");
+
+    if (parseBool(useWallet) && user?.walletBalance > 0) {
+      walletUsed = Math.min(user.walletBalance, pricing.total);
+      amountToPay = pricing.total - walletUsed;
+    }
+
+    res.status(200).json({
+      success: true,
+      pricing: {
+        subtotal: pricing.subtotal,
+        couponDiscount: pricing.couponDiscount,
+        gst: pricing.gst,
+        shipping: pricing.shipping,
+        walletUsed,
+        total: amountToPay,
+        // gross before wallet for clarity
+        grandTotal: pricing.total
+      },
+      subtotal: pricing.subtotal,
+      couponDiscount: pricing.couponDiscount,
+      gst: pricing.gst,
+      shipping: pricing.shipping,
+      walletUsed,
+      total: amountToPay,
+      gstPercent: pricing.gstPercent,
+      freeShippingThreshold: pricing.freeShippingThreshold,
+      couponApplied: pricing.couponApplied,
+      items: pricing.items
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // 1. Create New Order
@@ -76,7 +168,7 @@ export const createOrder = async (req, res, next) => {
     const { items, shippingAddress, paymentMethod, couponCode, useWallet } = req.body;
 
     if (!items || items.length === 0) {
-      return res.status(400).json({ success: false, message: "No items in order" });
+      return res.status(400).json({ success: false, message: "No items in order", code: "EMPTY_CART" });
     }
 
     if (!shippingAddress) {
@@ -105,15 +197,15 @@ export const createOrder = async (req, res, next) => {
     try {
       pricing = await calculateOrderPricing(items, couponCode);
     } catch (err) {
-      return res.status(400).json({ success: false, message: err.message });
+      return res.status(400).json({ success: false, message: err.message, code: err.code || "PRICING_ERROR" });
     }
 
     let finalTotal = pricing.total;
     let walletDeducted = 0;
-    
+
     // Wallet handling
     const user = await User.findById(req.user._id);
-    if (useWallet === true || useWallet === "true") {
+    if (parseBool(useWallet)) {
       if (user.walletBalance > 0) {
         if (user.walletBalance >= finalTotal) {
           walletDeducted = finalTotal;
@@ -138,7 +230,10 @@ export const createOrder = async (req, res, next) => {
       paymentStatus: finalTotal === 0 ? "Paid" : "Pending",
       orderStatus: "Pending",
       pricing: {
-        ...pricing,
+        subtotal: pricing.subtotal,
+        gst: pricing.gst,
+        shipping: pricing.shipping,
+        couponDiscount: pricing.couponDiscount,
         total: finalTotal // Net total to pay online/COD
       },
       trackingHistory: [{ status: "Pending", message: "Order placed successfully" }]
@@ -203,6 +298,14 @@ export const createOrder = async (req, res, next) => {
       success: true,
       message: "Order created successfully",
       order: populatedOrder,
+      pricing: {
+        subtotal: pricing.subtotal,
+        couponDiscount: pricing.couponDiscount,
+        gst: pricing.gst,
+        shipping: pricing.shipping,
+        walletUsed: walletDeducted,
+        total: finalTotal
+      },
       walletDeducted,
       amountToPay: finalTotal
     });
