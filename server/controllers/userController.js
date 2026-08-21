@@ -2,13 +2,63 @@ import User from "../models/User.js";
 import Product from "../models/Product.js";
 import { normalizeMobile, isValidIndianMobile } from "../utils/mobile.js";
 import { bumpProductCounter } from "../utils/productMetrics.js";
+import { parseBool } from "../utils/queryHelpers.js";
+import { lookupPincode } from "../utils/geocode.js";
+
+const CART_PRODUCT_FIELDS = "title images salePrice mrp stock brand discount rating colors sizes";
+
+/** Ensure every cart line has a populated product object (never bare id). */
+const serializeCart = (cart = []) =>
+  (cart || [])
+    .filter((c) => c && c.product && typeof c.product === "object" && c.product._id)
+    .map((c) => ({
+      _id: c._id,
+      quantity: c.quantity,
+      color: c.color || "",
+      size: c.size || "",
+      product: {
+        _id: c.product._id,
+        title: c.product.title,
+        images: c.product.images || [],
+        salePrice: c.product.salePrice,
+        mrp: c.product.mrp,
+        stock: c.product.stock,
+        brand: c.product.brand,
+        discount: c.product.discount,
+        rating: c.product.rating,
+        colors: c.product.colors,
+        sizes: c.product.sizes
+      }
+    }));
+
+const loadPopulatedCart = async (userId) => {
+  const user = await User.findById(userId).populate("cart.product", CART_PRODUCT_FIELDS);
+  if (!user) return [];
+
+  const origCount = user.cart.length;
+  const validCart = user.cart.filter((c) => c && c.product && c.product._id);
+
+  if (validCart.length !== origCount) {
+    user.cart = validCart.map((c) => ({
+      product: c.product._id,
+      quantity: c.quantity,
+      color: c.color,
+      size: c.size
+    }));
+    await user.save();
+    const refreshed = await User.findById(userId).populate("cart.product", CART_PRODUCT_FIELDS);
+    return serializeCart(refreshed.cart);
+  }
+
+  return serializeCart(validCart);
+};
 
 // 1. Get User Profile (req.user populated by auth middleware)
 export const getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id)
       .populate("wishlist", "title images salePrice mrp brand stock")
-      .populate("cart.product", "title images salePrice mrp stock brand");
+      .populate("cart.product", CART_PRODUCT_FIELDS);
 
     // Purge any deleted products from wishlist & cart
     let needsSave = false;
@@ -36,7 +86,10 @@ export const getProfile = async (req, res, next) => {
       await dbUser.save();
     }
 
-    res.status(200).json({ success: true, user });
+    const userObj = user.toObject();
+    userObj.cart = serializeCart(user.cart);
+
+    res.status(200).json({ success: true, user: userObj });
   } catch (error) {
     next(error);
   }
@@ -263,7 +316,7 @@ export const deleteAddress = async (req, res, next) => {
     // Find index
     const addressIndex = user.addresses.findIndex(addr => addr._id.toString() === req.params.id);
     if (addressIndex === -1) {
-      return res.status(404).json({ success: false, message: "Address not found" });
+      return res.status(404).json({ success: false, message: "Address not found", code: "NOT_FOUND" });
     }
 
     const wasDefault = user.addresses[addressIndex].isDefault;
@@ -286,31 +339,89 @@ export const deleteAddress = async (req, res, next) => {
   }
 };
 
+// 4b. Update Address
+export const updateAddress = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const addr = user.addresses.id(req.params.id);
+    if (!addr) {
+      return res.status(404).json({ success: false, message: "Address not found", code: "NOT_FOUND" });
+    }
+
+    const {
+      name, phone, houseNo, street, landmark, city, state, zipCode, country,
+      latitude, longitude, isDefault
+    } = req.body;
+
+    const { isValidIndianMobile: validMobile, normalizeIndianMobile, isValidPin } = await import("../utils/cryptoSensitive.js");
+
+    if (phone != null) {
+      const mobile = normalizeIndianMobile(phone);
+      if (!validMobile(mobile)) {
+        return res.status(400).json({ success: false, message: "Enter a valid 10-digit Indian mobile number" });
+      }
+      addr.phone = mobile;
+    }
+    if (name != null) addr.name = String(name).trim();
+    if (houseNo != null) addr.houseNo = houseNo;
+    if (street != null) addr.street = String(street).trim();
+    if (landmark != null) addr.landmark = landmark;
+    if (city != null) addr.city = String(city).trim();
+    if (state != null) addr.state = String(state).trim();
+    if (zipCode != null) {
+      if (!isValidPin(zipCode)) {
+        return res.status(400).json({ success: false, message: "Enter a valid 6-digit PIN code" });
+      }
+      addr.zipCode = String(zipCode).trim();
+    }
+    if (country != null) addr.country = country;
+    if (latitude != null) addr.latitude = Number(latitude);
+    if (longitude != null) addr.longitude = Number(longitude);
+
+    if (parseBool(isDefault)) {
+      user.addresses.forEach((a) => { a.isDefault = false; });
+      addr.isDefault = true;
+    }
+
+    await user.save();
+    res.status(200).json({ success: true, message: "Address updated", addresses: user.addresses, address: addr });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 4c. Set default address
+export const setDefaultAddress = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const addr = user.addresses.id(req.params.id);
+    if (!addr) {
+      return res.status(404).json({ success: false, message: "Address not found", code: "NOT_FOUND" });
+    }
+    user.addresses.forEach((a) => { a.isDefault = false; });
+    addr.isDefault = true;
+    await user.save();
+    res.status(200).json({ success: true, message: "Default address set", addresses: user.addresses });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 4d. PIN → city/state
+export const getPincodeLookup = async (req, res, next) => {
+  try {
+    const result = await lookupPincode(req.params.pin);
+    res.status(200).json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message || "PIN lookup failed", code: "PIN_INVALID" });
+  }
+};
+
 // 5. Sync / Get Cart
 export const getCart = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).populate("cart.product", "title images salePrice mrp stock brand");
-    
-    // Purge any deleted products from cart
-    const origCount = user.cart.length;
-    const validCart = user.cart.filter(c => c && c.product !== null && c.product?._id);
-
-    if (validCart.length !== origCount) {
-      const dbUser = await User.findById(req.user._id);
-      dbUser.cart = validCart.map(c => ({
-        product: c.product._id,
-        quantity: c.quantity,
-        color: c.color,
-        size: c.size
-      }));
-      await dbUser.save();
-      user.cart = validCart;
-    }
-
-    res.status(200).json({
-      success: true,
-      cart: user.cart
-    });
+    const cart = await loadPopulatedCart(req.user._id);
+    res.status(200).json({ success: true, cart });
   } catch (error) {
     next(error);
   }
@@ -325,7 +436,7 @@ export const addToCart = async (req, res, next) => {
     // Verify product exists
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
+      return res.status(404).json({ success: false, message: "Product not found", code: "NOT_FOUND" });
     }
 
     // Check if item with same productId, color, size exists
@@ -350,13 +461,13 @@ export const addToCart = async (req, res, next) => {
     if (isNewLine) {
       await bumpProductCounter(productId, "cartCount", 1).catch(() => {});
     }
-    
-    const populatedUser = await User.findById(req.user._id).populate("cart.product", "title images salePrice mrp stock brand");
+
+    const cart = await loadPopulatedCart(req.user._id);
 
     res.status(200).json({
       success: true,
       message: "Item added to cart",
-      cart: populatedUser.cart
+      cart
     });
   } catch (error) {
     next(error);
@@ -372,7 +483,7 @@ export const updateCartItem = async (req, res, next) => {
 
     const itemIndex = user.cart.findIndex(item => item._id.toString() === itemId);
     if (itemIndex === -1) {
-      return res.status(404).json({ success: false, message: "Item not found in cart" });
+      return res.status(404).json({ success: false, message: "Item not found in cart", code: "NOT_FOUND" });
     }
 
     const removedProductId =
@@ -388,12 +499,12 @@ export const updateCartItem = async (req, res, next) => {
     if (removedProductId) {
       await bumpProductCounter(removedProductId, "cartCount", -1).catch(() => {});
     }
-    const populatedUser = await User.findById(req.user._id).populate("cart.product", "title images salePrice mrp stock brand");
+    const cart = await loadPopulatedCart(req.user._id);
 
     res.status(200).json({
       success: true,
       message: "Cart updated",
-      cart: populatedUser.cart
+      cart
     });
   } catch (error) {
     next(error);

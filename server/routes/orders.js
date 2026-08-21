@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createOrder,
+  previewOrder,
   getMyOrders,
   getOrderById,
   cancelOrder,
@@ -18,6 +19,7 @@ import { validateBody } from "../middleware/validate.js";
 const router = express.Router();
 
 // Customer placing & viewing their own orders
+router.post("/preview", isAuthenticated, previewOrder);
 router.post("/", isAuthenticated, validateBody(["items", "shippingAddress", "paymentMethod"]), createOrder);
 router.get("/my", isAuthenticated, getMyOrders);
 

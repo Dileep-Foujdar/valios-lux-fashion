@@ -5,6 +5,9 @@ import {
   updatePermissions,
   addAddress,
   deleteAddress,
+  updateAddress,
+  setDefaultAddress,
+  getPincodeLookup,
   getCart,
   addToCart,
   updateCartItem,
@@ -30,12 +33,17 @@ router.post("/geocode/reverse", isAuthenticated, async (req, res, next) => {
     const result = await reverseGeocode(latitude, longitude);
     res.status(200).json({ success: true, address: result });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message || "Geocode failed" });
+    res.status(400).json({ success: false, message: err.message || "Geocode failed", code: "GEOCODE_FAILED" });
   }
 });
 
+// PIN → city/state
+router.get("/pincode/:pin", isAuthenticated, getPincodeLookup);
+
 // Address Routes
 router.post("/address", isAuthenticated, validateBody(["name", "phone", "street", "city", "state", "zipCode"]), addAddress);
+router.put("/address/:id", isAuthenticated, updateAddress);
+router.put("/address/:id/default", isAuthenticated, setDefaultAddress);
 router.delete("/address/:id", isAuthenticated, deleteAddress);
 
 // Cart Routes
