@@ -13,8 +13,28 @@ const MEDIA_PREFIX = "crinpro/media/ecommerce";
 
 let client = null;
 
+const looksLikePlaceholder = (value) => {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return true;
+  return (
+    v.includes("your_") ||
+    v.includes("changeme") ||
+    v.includes("example") ||
+    v.includes("xxxx") ||
+    v === "mock" ||
+    v.includes("mock")
+  );
+};
+
 export const isS3Configured = () =>
-  Boolean(BUCKET && ACCESS_KEY && SECRET_KEY && !String(ACCESS_KEY).includes("mock"));
+  Boolean(
+    BUCKET &&
+      ACCESS_KEY &&
+      SECRET_KEY &&
+      !looksLikePlaceholder(ACCESS_KEY) &&
+      !looksLikePlaceholder(SECRET_KEY) &&
+      !looksLikePlaceholder(BUCKET)
+  );
 
 export const getS3Client = () => {
   if (!isS3Configured()) return null;

@@ -95,38 +95,83 @@ const ImageUploader = ({
       const id = `${file.name}-${Date.now()}-${Math.random()}`;
       setUploads((prev) => [...prev, { id, name: file.name, progress: 0 }]);
 
+      const markError = (err) => {
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === id
+              ? {
+                  id: u.id,
+                  name: u.name,
+                  progress: 100,
+                  error: err.response?.data?.message || err.message || "Failed"
+                }
+              : u
+          )
+        );
+      };
+
+      const fileToDataUrl = () =>
+        new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.onerror = () => rej(new Error("Could not read file"));
+          reader.readAsDataURL(file);
+        });
+
       try {
-        const presign = await api.post("/uploads/presign", {
-          fileName: file.name,
-          contentType: file.type || "image/jpeg",
-          folder
-        });
+        let publicUrl = null;
 
-        const { uploadUrl, publicUrl } = presign.data;
+        try {
+          const presign = await api.post("/uploads/presign", {
+            fileName: file.name,
+            contentType: file.type || "image/jpeg",
+            folder
+          });
 
-        await new Promise((res, rej) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", uploadUrl);
-          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-          xhr.upload.onprogress = (evt) => {
-            if (!evt.lengthComputable) return;
-            const progress = Math.round((evt.loaded / evt.total) * 100);
-            setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, progress } : u)));
-          };
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) res();
-            else rej(new Error(`Upload failed (${xhr.status})`));
-          };
-          xhr.onerror = () => rej(new Error("Network error during upload"));
-          xhr.send(file);
-        });
+          const { uploadUrl, publicUrl: s3Url } = presign.data;
+
+          await new Promise((res, rej) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", uploadUrl);
+            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+            xhr.upload.onprogress = (evt) => {
+              if (!evt.lengthComputable) return;
+              const progress = Math.round((evt.loaded / evt.total) * 100);
+              setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, progress } : u)));
+            };
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) res();
+              else rej(new Error(`Upload failed (${xhr.status})`));
+            };
+            xhr.onerror = () => rej(new Error("Network error during upload"));
+            xhr.send(file);
+          });
+
+          publicUrl = s3Url;
+        } catch (s3Err) {
+          // Fallback when S3 is not configured (503) or unreachable
+          const code = s3Err.response?.status;
+          if (code !== 503 && s3Err.response?.data?.code !== "S3_NOT_CONFIGURED") {
+            throw s3Err;
+          }
+          setUploads((prev) =>
+            prev.map((u) => (u.id === id ? { ...u, progress: 40 } : u))
+          );
+          const dataUrl = await fileToDataUrl();
+          const local = await api.post("/uploads/local", {
+            fileName: file.name,
+            contentType: file.type || "image/jpeg",
+            folder,
+            dataUrl
+          });
+          publicUrl = local.data.publicUrl;
+          toast("Saved locally — add real AWS keys for S3/CDN uploads", { icon: "ℹ️" });
+        }
 
         setUploads((prev) => prev.filter((u) => u.id !== id));
         resolve(publicUrl);
       } catch (err) {
-        setUploads((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, error: err.message || "Failed", progress: 100 } : u))
-        );
+        markError(err);
         reject(err);
       }
     });
@@ -248,7 +293,7 @@ const ImageUploader = ({
           ref={inputRef}
           type="file"
           accept="image/*"
-          multiple={replaceIndexRef.current == null}
+          multiple
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
