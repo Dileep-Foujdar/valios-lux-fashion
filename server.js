@@ -17,6 +17,7 @@ import {
   sanitizeMongoQueries,
   sanitizeXSS
 } from "./server/middleware/security.js";
+import { getS3ConfigStatus } from "./server/config/s3.js";
 
 const dev = process.env.NODE_ENV !== "production";
 const nextApp = next({ dev });
@@ -141,7 +142,11 @@ nextApp.prepare().then(() => {
   // Start unified server
   server.listen(port, (err) => {
     if (err) throw err;
+    const s3 = getS3ConfigStatus();
     console.log(`> Server ready on http://localhost:${port} in ${dev ? "development" : "production"} mode`);
+    console.log(
+      `> AWS S3: ${s3.configured ? "configured" : "NOT configured"} (bucket=${s3.bucketSet}, key=${s3.accessKeySet}, secret=${s3.secretKeySet}, cdn=${s3.cdnSet})`
+    );
   });
 }).catch((error) => {
   console.error("> Next.js preparation error:", error);

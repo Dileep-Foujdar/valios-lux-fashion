@@ -110,6 +110,10 @@ const ImageUploader = ({
         );
       };
 
+      const setProgress = (progress) => {
+        setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, progress } : u)));
+      };
+
       const fileToDataUrl = () =>
         new Promise((res, rej) => {
           const reader = new FileReader();
@@ -119,57 +123,18 @@ const ImageUploader = ({
         });
 
       try {
-        let publicUrl = null;
-
-        try {
-          const presign = await api.post("/uploads/presign", {
-            fileName: file.name,
-            contentType: file.type || "image/jpeg",
-            folder
-          });
-
-          const { uploadUrl, publicUrl: s3Url } = presign.data;
-
-          await new Promise((res, rej) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("PUT", uploadUrl);
-            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-            xhr.upload.onprogress = (evt) => {
-              if (!evt.lengthComputable) return;
-              const progress = Math.round((evt.loaded / evt.total) * 100);
-              setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, progress } : u)));
-            };
-            xhr.onload = () => {
-              if (xhr.status >= 200 && xhr.status < 300) res();
-              else rej(new Error(`Upload failed (${xhr.status})`));
-            };
-            xhr.onerror = () => rej(new Error("Network error during upload"));
-            xhr.send(file);
-          });
-
-          publicUrl = s3Url;
-        } catch (s3Err) {
-          // Fallback when S3 is not configured (503) or unreachable
-          const code = s3Err.response?.status;
-          if (code !== 503 && s3Err.response?.data?.code !== "S3_NOT_CONFIGURED") {
-            throw s3Err;
-          }
-          setUploads((prev) =>
-            prev.map((u) => (u.id === id ? { ...u, progress: 40 } : u))
-          );
-          const dataUrl = await fileToDataUrl();
-          const local = await api.post("/uploads/local", {
-            fileName: file.name,
-            contentType: file.type || "image/jpeg",
-            folder,
-            dataUrl
-          });
-          publicUrl = local.data.publicUrl;
-          toast("Saved locally — add real AWS keys for S3/CDN uploads", { icon: "ℹ️" });
-        }
-
+        setProgress(20);
+        const dataUrl = await fileToDataUrl();
+        setProgress(50);
+        const res = await api.post("/uploads/s3", {
+          fileName: file.name,
+          contentType: file.type || "image/jpeg",
+          folder,
+          dataUrl
+        });
+        setProgress(100);
         setUploads((prev) => prev.filter((u) => u.id !== id));
-        resolve(publicUrl);
+        resolve(res.data.publicUrl);
       } catch (err) {
         markError(err);
         reject(err);
@@ -249,7 +214,7 @@ const ImageUploader = ({
             {label}
           </h4>
           <p className="mt-0.5 text-[11px] font-medium text-zinc-500">
-            Min {minImages} images · drag to reorder · stored on AWS S3
+            Min {minImages} images · drag to reorder · uploads to AWS S3
           </p>
         </div>
         <span

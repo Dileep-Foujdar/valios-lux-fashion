@@ -1,13 +1,36 @@
-import fs from "fs";
-import path from "path";
-import crypto from "crypto";
-import { createPresignedUpload, deleteS3Object, isS3Configured } from "../config/s3.js";
+import {
+  createPresignedUpload,
+  deleteS3Object,
+  isS3Configured,
+  getS3ConfigStatus,
+  uploadBufferToS3
+} from "../config/s3.js";
+
+const parseDataUrl = (dataUrl) => {
+  const matches = String(dataUrl || "").match(/^data:([A-Za-z0-9_+./-]+);base64,(.+)$/);
+  if (!matches) return null;
+  return {
+    mime: matches[1],
+    buffer: Buffer.from(matches[2], "base64")
+  };
+};
 
 export const getUploadStatus = async (req, res) => {
+  const status = getS3ConfigStatus();
   res.status(200).json({
     success: true,
-    s3Configured: isS3Configured(),
-    mode: isS3Configured() ? "s3" : "local"
+    s3Configured: status.configured,
+    mode: status.configured ? "s3" : "unavailable",
+    details: {
+      region: status.region,
+      bucketSet: status.bucketSet,
+      accessKeySet: status.accessKeySet,
+      secretKeySet: status.secretKeySet,
+      cdnSet: status.cdnSet
+    },
+    hint: status.configured
+      ? null
+      : "Add real AWS_S3_ACCESS_KEY_ID + AWS_S3_SECRET_ACCESS_KEY (and bucket) in .env / Vercel Environment Variables."
   });
 };
 
@@ -18,7 +41,7 @@ export const presignUpload = async (req, res, next) => {
         success: false,
         code: "S3_NOT_CONFIGURED",
         message:
-          "AWS S3 is not configured. Set real AWS_S3_ACCESS_KEY_ID and AWS_S3_SECRET_ACCESS_KEY in .env (not placeholders), or use local upload."
+          "AWS S3 is not configured. Set AWS_S3_BUCKET_NAME, AWS_S3_ACCESS_KEY_ID, AWS_S3_SECRET_ACCESS_KEY in environment variables."
       });
     }
 
@@ -38,65 +61,70 @@ export const presignUpload = async (req, res, next) => {
     }
 
     const result = await createPresignedUpload({ fileName, contentType, folder });
-    res.status(200).json({ success: true, ...result });
+    res.status(200).json({ success: true, mode: "s3-presign", ...result });
   } catch (error) {
     next(error);
   }
 };
 
-/** Dev / fallback: save image to public/uploads when S3 is unavailable */
-export const localUpload = async (req, res, next) => {
+/** Browser → API → S3 only (no local disk) */
+export const s3Upload = async (req, res) => {
   try {
-    const { fileName, contentType, dataUrl, folder = "products" } = req.body || {};
+    if (!isS3Configured()) {
+      return res.status(503).json({
+        success: false,
+        code: "S3_NOT_CONFIGURED",
+        message:
+          "AWS S3 is not configured. Add real AWS keys in .env (local) and Vercel Environment Variables (production)."
+      });
+    }
 
-    if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image")) {
+    const { fileName, contentType, dataUrl, folder = "products" } = req.body || {};
+    const parsed = parseDataUrl(dataUrl);
+    if (!parsed) {
       return res.status(400).json({
         success: false,
         message: "dataUrl (base64 image) is required"
       });
     }
 
-    if (contentType && !String(contentType).startsWith("image/")) {
-      return res.status(400).json({
-        success: false,
-        message: "Only image uploads are allowed"
-      });
+    const mime = contentType || parsed.mime;
+    if (!String(mime).startsWith("image/")) {
+      return res.status(400).json({ success: false, message: "Only image uploads are allowed" });
     }
-
-    const matches = dataUrl.match(/^data:([A-Za-z0-9_+./-]+);base64,(.+)$/);
-    if (!matches) {
-      return res.status(400).json({ success: false, message: "Invalid image dataUrl" });
-    }
-
-    const mime = matches[1];
-    const buffer = Buffer.from(matches[2], "base64");
-    if (buffer.length > 8 * 1024 * 1024) {
+    if (parsed.buffer.length > 8 * 1024 * 1024) {
       return res.status(400).json({ success: false, message: "Image must be under 8MB" });
     }
 
-    const ext = (mime.split("/")[1] || "jpg").replace("jpeg", "jpg");
-    const safe = String(fileName || "image")
-      .replace(/[^a-zA-Z0-9._-]/g, "-")
-      .slice(0, 60);
-    const filename = `${String(folder).replace(/[^a-zA-Z0-9_-]/g, "")}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}_${safe}.${ext}`;
+    const result = await uploadBufferToS3({
+      buffer: parsed.buffer,
+      fileName: fileName || "image.jpg",
+      contentType: mime,
+      folder
+    });
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    fs.writeFileSync(path.join(uploadDir, filename), buffer);
-
-    const publicUrl = `/uploads/${filename}`;
     res.status(200).json({
       success: true,
-      publicUrl,
-      mode: "local",
-      message: isS3Configured()
-        ? "Saved locally"
-        : "Saved locally (S3 not configured). For production, add real AWS keys."
+      mode: "s3",
+      publicUrl: result.publicUrl,
+      key: result.key
     });
   } catch (error) {
-    next(error);
+    console.error("S3 upload error:", error?.name, error?.message);
+    if (error?.code === "S3_NOT_CONFIGURED" || error?.statusCode === 503) {
+      return res.status(503).json({
+        success: false,
+        code: "S3_NOT_CONFIGURED",
+        message: error.message
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      code: "S3_UPLOAD_FAILED",
+      message:
+        error?.message ||
+        "Failed to upload to AWS S3. Check IAM permissions, bucket name, and region."
+    });
   }
 };
 
@@ -107,16 +135,12 @@ export const deleteUpload = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "key or url is required" });
     }
 
-    // Local file delete
-    const target = key || url;
-    if (typeof target === "string" && target.startsWith("/uploads/")) {
-      const filePath = path.join(process.cwd(), "public", target.replace(/^\//, ""));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return res.status(200).json({ success: true, message: "Local image deleted" });
-    }
-
     if (!isS3Configured()) {
-      return res.status(200).json({ success: true, message: "Skipped remote delete (S3 not configured)" });
+      return res.status(503).json({
+        success: false,
+        code: "S3_NOT_CONFIGURED",
+        message: "AWS S3 is not configured"
+      });
     }
 
     const result = await deleteS3Object(key || url);
