@@ -1,5 +1,10 @@
 import express from "express";
-import { presignUpload, localUpload, deleteUpload, getUploadStatus } from "../controllers/uploadController.js";
+import {
+  presignUpload,
+  s3Upload,
+  deleteUpload,
+  getUploadStatus
+} from "../controllers/uploadController.js";
 import { isAuthenticated, authorizeRoles } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 
@@ -16,10 +21,10 @@ router.post(
 );
 
 router.post(
-  "/local",
+  "/s3",
   ...adminOnly,
   validateBody(["dataUrl"]),
-  localUpload
+  s3Upload
 );
 
 router.delete("/", ...adminOnly, deleteUpload);

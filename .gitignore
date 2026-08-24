@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local upload leftovers (images must go to AWS S3 only)
+/public/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -237,7 +237,7 @@ rating | discount | sold | popular
 | Stats/settings/users | `/admin/stats`, `/admin/settings`, `/admin/users` |
 | Delivery partners | `/admin/delivery/partners`, `/admin/delivery/offers`, `/admin/delivery/overview` |
 | Products CRUD | `/products` (auth) |
-| Uploads | `/uploads/presign` |
+| Uploads | `/uploads/status`, `/uploads/s3` (AWS only), `/uploads/presign` |
 
 ---
 
