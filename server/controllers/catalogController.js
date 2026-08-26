@@ -191,6 +191,8 @@ export const updateCategory = async (req, res, next) => {
     if (image !== undefined) category.image = image;
     if (subcategories !== undefined) {
       category.subcategories = normalizeSubcategories(subcategories);
+      // Mixed-type arrays need an explicit mark or mongoose may skip the write
+      category.markModified("subcategories");
     }
     if (enabled !== undefined) category.enabled = Boolean(enabled);
     if (order !== undefined) category.order = Number(order) || 0;

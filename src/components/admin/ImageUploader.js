@@ -80,6 +80,7 @@ const ImageUploader = ({
   onChange,
   folder = "products",
   minImages = 3,
+  maxImages,
   label = "Product Images"
 }) => {
   const inputRef = useRef(null);
@@ -163,8 +164,17 @@ const ImageUploader = ({
         }
         toast.success("Image replaced");
       } else {
+        const remaining =
+          typeof maxImages === "number"
+            ? Math.max(0, maxImages - (value?.length || 0))
+            : files.length;
+        if (remaining <= 0) {
+          toast.error(`Maximum ${maxImages} image(s) allowed`);
+          return;
+        }
+        const toUpload = files.slice(0, remaining);
         const urls = [];
-        for (const file of files) {
+        for (const file of toUpload) {
           // sequential to keep progress readable
           urls.push(await uploadFile(file));
         }
@@ -214,7 +224,10 @@ const ImageUploader = ({
             {label}
           </h4>
           <p className="mt-0.5 text-[11px] font-medium text-zinc-500">
-            Min {minImages} images · drag to reorder · uploads to AWS S3
+            {typeof maxImages === "number"
+              ? `Up to ${maxImages} image${maxImages === 1 ? "" : "s"}`
+              : `Min ${minImages} images`}{" "}
+            · drag to reorder · uploads to AWS S3
           </p>
         </div>
         <span
@@ -224,13 +237,18 @@ const ImageUploader = ({
               : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
           }`}
         >
-          {value.length} / {minImages}+
+          {typeof maxImages === "number"
+            ? `${value.length} / ${maxImages}`
+            : `${value.length} / ${minImages}+`}
         </span>
       </div>
 
       <div
         onDragOver={(e) => {
           e.preventDefault();
+          if (typeof maxImages === "number" && value.length >= maxImages && replaceIndexRef.current == null) {
+            return;
+          }
           setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
@@ -240,7 +258,11 @@ const ImageUploader = ({
           handleFiles(e.dataTransfer.files);
         }}
         onClick={() => {
-          replaceIndexRef.current = null;
+          if (typeof maxImages === "number" && value.length >= maxImages) {
+            replaceIndexRef.current = 0;
+          } else {
+            replaceIndexRef.current = null;
+          }
           inputRef.current?.click();
         }}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 transition-colors ${
@@ -251,14 +273,16 @@ const ImageUploader = ({
       >
         <IoCloudUploadOutline className="text-3xl text-zinc-400" />
         <p className="mt-2 text-xs font-bold text-zinc-700 dark:text-zinc-200">
-          Drag & drop images here
+          {typeof maxImages === "number" && value.length >= maxImages
+            ? "Click to replace image"
+            : "Drag & drop images here"}
         </p>
         <p className="mt-1 text-[11px] text-zinc-400">or click to browse</p>
         <input
           ref={inputRef}
           type="file"
           accept="image/*"
-          multiple
+          multiple={maxImages !== 1}
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
