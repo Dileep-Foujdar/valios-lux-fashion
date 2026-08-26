@@ -9,6 +9,7 @@ import {
   IoArrowDownOutline,
 } from "react-icons/io5";
 import api from "../../utils/api.js";
+import ImageUploader from "./ImageUploader.js";
 
 const TABS = [
   { id: "categories", label: "Categories" },
@@ -112,9 +113,8 @@ const CatalogManager = () => {
   };
 
   const saveCategory = async () => {
-    if (!form.name.trim() || !form.image.trim()) {
-      return toast.error("Name and image URL required");
-    }
+    if (!form.name.trim()) return toast.error("Name required");
+    if (!form.image?.trim()) return toast.error("Upload a category image");
     try {
       if (editingCategory) {
         await api.put(`/catalog/categories/${editingCategory._id}`, {
@@ -158,12 +158,33 @@ const CatalogManager = () => {
     }
   };
 
+  const normalizeSubs = (list = []) =>
+    (list || [])
+      .map((item, index) => {
+        if (typeof item === "string") {
+          return { name: item.trim(), enabled: true, order: index };
+        }
+        return {
+          name: String(item?.name || "").trim(),
+          enabled: item?.enabled !== false,
+          order: Number(item?.order) || index,
+        };
+      })
+      .filter((s) => s.name);
+
   const addSubcategory = async (cat) => {
-    if (!subInput.trim()) return;
-    const subs = [...(cat.subcategories || []), { name: subInput.trim(), enabled: true, order: cat.subcategories?.length || 0 }];
+    const name = subInput.trim();
+    if (!name) return;
+    const existing = normalizeSubs(cat.subcategories);
+    if (existing.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+      return toast.error("Subcategory already exists");
+    }
+    const subs = [...existing, { name, enabled: true, order: existing.length }];
     try {
       await api.put(`/catalog/categories/${cat._id}`, { subcategories: subs });
       setSubInput("");
+      setEditingCategory(null);
+      toast.success("Subcategory added");
       load();
     } catch {
       toast.error("Failed to add subcategory");
@@ -171,7 +192,7 @@ const CatalogManager = () => {
   };
 
   const toggleSub = async (cat, subName) => {
-    const subs = (cat.subcategories || []).map((s) =>
+    const subs = normalizeSubs(cat.subcategories).map((s) =>
       s.name === subName ? { ...s, enabled: !s.enabled } : s
     );
     try {
@@ -237,11 +258,15 @@ const CatalogManager = () => {
                 placeholder="Category name"
                 className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold outline-none dark:border-zinc-800 dark:bg-zinc-900"
               />
-              <input
-                value={form.image}
-                onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))}
-                placeholder="Image URL"
-                className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold outline-none dark:border-zinc-800 dark:bg-zinc-900"
+              <ImageUploader
+                label="Category Image"
+                folder="categories"
+                minImages={1}
+                maxImages={1}
+                value={form.image ? [form.image] : []}
+                onChange={(urls) =>
+                  setForm((f) => ({ ...f, image: urls[0] || "" }))
+                }
               />
               <div className="flex gap-2">
                 <button
@@ -283,6 +308,11 @@ const CatalogManager = () => {
                         <p className="text-[10px] text-zinc-400">
                           {cat.enabled === false ? "Disabled" : "Enabled"} · {cat.slug}
                         </p>
+                        {cat.enabled === false && (
+                          <p className="mt-1 text-[10px] font-semibold text-amber-600">
+                            Disabled — storefront hides it. Click Enable to use on site.
+                          </p>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <button type="button" onClick={() => moveCategory(index, -1)} className="rounded-lg p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900">
@@ -314,7 +344,7 @@ const CatalogManager = () => {
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {(cat.subcategories || []).map((sub) => (
+                      {normalizeSubs(cat.subcategories).map((sub) => (
                         <button
                           key={sub.name}
                           type="button"

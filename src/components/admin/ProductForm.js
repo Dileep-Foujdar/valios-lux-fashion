@@ -96,6 +96,7 @@ const ProductForm = ({ mode = "create", productId = null }) => {
 
   const title = useWatch({ control, name: "title", defaultValue: "" });
   const categoryId = useWatch({ control, name: "category", defaultValue: "" });
+  const selectedSubcategory = useWatch({ control, name: "subcategory", defaultValue: "" });
   const mrp = Number(useWatch({ control, name: "mrp", defaultValue: "" })) || 0;
   const salePrice = Number(useWatch({ control, name: "salePrice", defaultValue: "" })) || 0;
   const stock = Number(useWatch({ control, name: "stock", defaultValue: 0 })) || 0;
@@ -103,9 +104,23 @@ const ProductForm = ({ mode = "create", productId = null }) => {
     Number(useWatch({ control, name: "lowStockThreshold", defaultValue: 15 })) || 15;
 
   const selectedCategory = useMemo(
-    () => categories.find((c) => c._id === categoryId),
+    () => categories.find((c) => String(c._id) === String(categoryId || "")),
     [categories, categoryId]
   );
+
+  const subcategoryOptions = useMemo(() => {
+    const raw = selectedCategory?.subcategories || [];
+    return raw
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          // Disabled subs stay visible in admin so existing products remain editable
+          return String(item.name || "").trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }, [selectedCategory]);
 
   const discount = mrp > 0 ? Math.max(0, Math.round(((mrp - salePrice) / mrp) * 100)) : 0;
   const stockStatus =
@@ -113,11 +128,34 @@ const ProductForm = ({ mode = "create", productId = null }) => {
 
   useEffect(() => {
     Promise.all([
-      api.get("/products/categories"),
+      // Admin must see disabled categories too (storefront still hides them)
+      api
+        .get("/catalog/categories?includeDisabled=true")
+        .catch(() => api.get("/products/categories")),
       api.get("/products/brands-stats"),
       api.get("/admin/settings")
     ]).then(([catRes, brandRes, settingsRes]) => {
-      if (catRes.data.success) setCategories(catRes.data.categories || []);
+      const list = catRes.data?.categories || [];
+      if (catRes.data?.success) {
+        setCategories(
+          list.map((c) => ({
+            ...c,
+            _id: String(c._id),
+            subcategories: (c.subcategories || [])
+              .map((item, index) => {
+                if (typeof item === "string") {
+                  return { name: item.trim(), enabled: true, order: index };
+                }
+                return {
+                  name: String(item?.name || "").trim(),
+                  enabled: item?.enabled !== false,
+                  order: Number(item?.order) || index
+                };
+              })
+              .filter((s) => s.name)
+          }))
+        );
+      }
       if (brandRes.data.success) {
         setBrandOptions(brandRes.data.brands || []);
         setSizeOptions(brandRes.data.sizes || []);
@@ -129,6 +167,19 @@ const ProductForm = ({ mode = "create", productId = null }) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (!categoryId) {
+      if (selectedSubcategory) setValue("subcategory", "");
+      return;
+    }
+    if (
+      selectedSubcategory &&
+      subcategoryOptions.length &&
+      !subcategoryOptions.includes(selectedSubcategory)
+    ) {
+      setValue("subcategory", "");
+    }
+  }, [categoryId, subcategoryOptions, selectedSubcategory, setValue]);
   useEffect(() => {
     if (!slugManual && title) {
       setValue("slug", slugify(title));
@@ -154,7 +205,7 @@ const ProductForm = ({ mode = "create", productId = null }) => {
           slug: p.slug || "",
           sku: p.sku || "",
           brand: p.brand || "",
-          category: p.category?._id || p.category || "",
+          category: String(p.category?._id || p.category || ""),
           subcategory: p.subcategory || "",
           shortDescription: p.shortDescription || "",
           description: p.description || "",
@@ -401,24 +452,47 @@ const ProductForm = ({ mode = "create", productId = null }) => {
                 </datalist>
               </Field>
               <Field label="Category" error={errors.category?.message}>
-                <select {...register("category", { required: "Required" })} className={inputCls}>
+                <select
+                  {...register("category", {
+                    required: "Required",
+                    onChange: () => setValue("subcategory", "")
+                  })}
+                  className={inputCls}
+                >
                   <option value="">Select category</option>
                   {categories.map((c) => (
                     <option key={c._id} value={c._id}>
                       {c.name}
+                      {c.enabled === false ? " (disabled)" : ""}
                     </option>
                   ))}
                 </select>
+                {categories.length === 0 && (
+                  <p className="mt-1 text-[10px] font-medium text-amber-600">
+                    No categories found. Create one in Catalog Manager first.
+                  </p>
+                )}
               </Field>
               <Field label="Sub Category" error={errors.subcategory?.message}>
-                <select {...register("subcategory", { required: "Required" })} className={inputCls}>
-                  <option value="">Select subcategory</option>
-                  {(selectedCategory?.subcategories || []).map((s) => (
+                <select
+                  {...register("subcategory", { required: "Required" })}
+                  className={inputCls}
+                  disabled={!categoryId}
+                >
+                  <option value="">
+                    {!categoryId ? "Select category first" : "Select subcategory"}
+                  </option>
+                  {subcategoryOptions.map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>
                   ))}
                 </select>
+                {categoryId && subcategoryOptions.length === 0 && (
+                  <p className="mt-1 text-[10px] font-medium text-amber-600">
+                    No subcategories on this category. Add them in Catalog Manager.
+                  </p>
+                )}
               </Field>
               <Field label="Sizes (comma separated)" className="md:col-span-2">
                 <input
