@@ -5,10 +5,15 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --brand-navy: #0d0d2b;
+  --brand-purple: #7b2cbf;
+  --brand-purple-deep: #5e259e;
+  --brand-accent: #ff8c37;
+  --brand-accent-gold: #fdba2d;
   --scrollbar-track: transparent;
-  --scrollbar-thumb: rgba(24, 24, 27, 0.22);
-  --scrollbar-thumb-hover: rgba(24, 24, 27, 0.42);
-  --scrollbar-thumb-active: rgba(24, 24, 27, 0.62);
+  --scrollbar-thumb: rgba(123, 44, 191, 0.28);
+  --scrollbar-thumb-hover: rgba(123, 44, 191, 0.45);
+  --scrollbar-thumb-active: rgba(94, 37, 158, 0.62);
 }
 
 html {
@@ -71,6 +76,11 @@ html {
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-purple-deep: var(--brand-purple-deep);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-gold: var(--brand-accent-gold);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-display);
@@ -137,4 +147,108 @@ body {
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Zentro brand utilities */
+.text-brand {
+  color: var(--brand-navy);
+}
+
+.dark .text-brand {
+  color: #f4f0ff;
+}
+
+.text-brand-purple {
+  color: var(--brand-purple);
+}
+
+.bg-brand {
+  background-color: var(--brand-purple);
+}
+
+.bg-brand-navy {
+  background-color: var(--brand-navy);
+}
+
+.bg-brand-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--brand-navy) 0%,
+    var(--brand-purple-deep) 45%,
+    var(--brand-purple) 78%,
+    var(--brand-accent) 100%
+  );
+}
+
+.btn-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--brand-purple);
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+}
+
+.btn-brand:hover {
+  background-color: var(--brand-purple-deep);
+  box-shadow: 0 8px 24px rgba(123, 44, 191, 0.28);
+}
+
+.btn-brand:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-brand-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-image: linear-gradient(90deg, var(--brand-accent), var(--brand-accent-gold));
+  color: var(--brand-navy);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition:
+    filter 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+}
+
+.btn-brand-accent:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 8px 24px rgba(255, 140, 55, 0.35);
+}
+
+.badge-brand {
+  background-color: var(--brand-purple);
+  color: #ffffff;
+}
+
+.badge-brand-accent {
+  background-image: linear-gradient(90deg, var(--brand-accent), var(--brand-accent-gold));
+  color: var(--brand-navy);
+}
+
+.brand-wordmark {
+  color: var(--brand-navy);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.dark .brand-wordmark {
+  color: #f8f5ff;
+}
+
+.brand-tagline {
+  color: var(--brand-purple);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }

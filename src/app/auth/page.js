@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -310,8 +310,14 @@ const AuthPage = () => {
           className="w-full max-w-lg rounded-3xl border border-zinc-200 bg-white p-8 shadow-xl dark:border-zinc-800 dark:bg-zinc-900/50 transition-colors"
         >
           <div className="mb-6 flex flex-col items-center text-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Kirnya Logo" className="mb-3 h-12 w-auto object-contain" />
+            <div className="mb-3 inline-flex rounded-2xl bg-white px-3 py-2 ring-1 ring-black/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png?v=5"
+                alt="Zentro"
+                className="h-16 w-auto max-w-[200px] object-contain object-left"
+              />
+            </div>
             <h1
               className="text-xl font-black uppercase tracking-widest"
               style={{
@@ -320,7 +326,7 @@ const AuthPage = () => {
                 WebkitTextFillColor: "transparent"
               }}
             >
-              Kirnya Access
+              Zentro Access
             </h1>
             <p className="mt-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">
               Passwordless email OTP authentication
@@ -630,7 +636,7 @@ const AuthPage = () => {
           </div>
 
           <div className="mt-4 text-center text-[10px] font-medium leading-relaxed text-zinc-400 dark:text-zinc-500">
-            By continuing, you agree to Kirnya&apos;s Terms of Service and Privacy Policy.
+            By continuing, you agree to Zentro&apos;s Terms of Service and Privacy Policy.
             OTP expires in 5 minutes.
           </div>
         </motion.div>

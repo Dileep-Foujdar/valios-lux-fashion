@@ -21,24 +21,28 @@ import { ProductCardSkeleton } from "../components/Skeleton.js";
 import api from "../utils/api.js";
 
 const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2000&q=80";
+  "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=2000&q=80";
 
 const COLLECTION_PANELS = [
   {
-    image: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=800&q=80",
-    label: "Tunics"
+    image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=800&q=80",
+    label: "Women",
+    href: "/search?category=Women"
   },
   {
-    image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80",
-    label: "Street Edit"
+    image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80",
+    label: "Men",
+    href: "/search?category=Men"
   },
   {
-    image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=800&q=80",
-    label: "Weekend"
+    image: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=800&q=80",
+    label: "Kids",
+    href: "/search?category=Kids"
   },
   {
-    image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80",
-    label: "Evening"
+    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80",
+    label: "Home",
+    href: "/search?category=Home%20%26%20Kitchen"
   }
 ];
 
@@ -81,16 +85,19 @@ export default function Home() {
     let cancelled = false;
     queueMicrotask(async () => {
       try {
-        const [catRes, newRes, featRes] = await Promise.all([
+        const [catRes, newRes, featRes, allRes] = await Promise.all([
           api.get("/products/categories"),
           api.get("/products?newArrival=true&limit=8&sort=-createdAt"),
-          api.get("/products?featured=1&limit=8&sort=featured")
+          api.get("/products?featured=1&limit=8&sort=featured"),
+          api.get("/products?limit=8&sort=-createdAt")
         ]);
         if (cancelled) return;
         if (catRes.data.success) setCategories(catRes.data.categories || []);
         if (newRes.data.success) setNewArrivals(newRes.data.products || []);
         if (featRes.data.success) setFeatured(featRes.data.products || []);
-      } catch (err) {
+        if (allRes.data.success && !(newRes.data.products || []).length) {
+          setNewArrivals(allRes.data.products || []);
+        }      } catch (err) {
         console.error("Home data fetch error:", err);
       } finally {
         if (!cancelled) setLoading(false);
@@ -101,7 +108,7 @@ export default function Home() {
     };
   }, []);
 
-  const categoryCircles = categories.slice(0, 6);
+  const categoryCircles = categories;
 
   return (
     <>
@@ -112,7 +119,7 @@ export default function Home() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={HERO_IMAGE}
-          alt="Kirnya collection"
+          alt="Zentro collection"
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/20" />
@@ -125,7 +132,7 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             className="font-display text-5xl font-semibold tracking-[0.08em] text-white sm:text-6xl md:text-7xl lg:text-8xl"
           >
-            KIRNYA
+            ZENTRO
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -141,7 +148,7 @@ export default function Home() {
             transition={{ duration: 0.6, delay: 0.22 }}
             className="mt-4 max-w-md text-sm leading-relaxed text-zinc-300 sm:text-base"
           >
-            Timeless prints. Effortless grace. Made for every moment you live in.
+            Men, women, kids, home, beauty & more — shop everything in one place.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -150,16 +157,28 @@ export default function Home() {
             className="mt-8 flex flex-wrap items-center gap-4"
           >
             <Link
-              href="/search?sort=featured"
-              className="inline-flex items-center gap-2 bg-white px-7 py-3.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-black transition hover:bg-zinc-200"
+              href="/search"
+              className="btn-brand px-7 py-3.5 text-[11px] tracking-[0.2em]"
             >
-              Shop Now <IoArrowForward className="text-sm" />
+              Shop All <IoArrowForward className="text-sm" />
             </Link>
             <Link
-              href="/search?newArrival=true"
+              href="/search?category=Men"
               className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80 underline-offset-4 transition hover:text-white hover:underline"
             >
-              New arrivals
+              Men
+            </Link>
+            <Link
+              href="/search?category=Women"
+              className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80 underline-offset-4 transition hover:text-white hover:underline"
+            >
+              Women
+            </Link>
+            <Link
+              href="/search?category=Kids"
+              className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80 underline-offset-4 transition hover:text-white hover:underline"
+            >
+              Kids
             </Link>
           </motion.div>
         </div>
@@ -194,7 +213,7 @@ export default function Home() {
               Explore The Products
             </h2>
             <p className="mt-3 text-xs uppercase tracking-[0.25em] text-zinc-500">
-              Global style, every day
+              Women · Men · Kids · Home
             </p>
           </motion.div>
 
@@ -206,7 +225,7 @@ export default function Home() {
               {COLLECTION_PANELS.map((panel, i) => (
                 <Link
                   key={panel.label}
-                  href={`/search?sort=featured`}
+                  href={panel.href}
                   className="group relative aspect-[3/4] overflow-hidden bg-zinc-200"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -245,7 +264,7 @@ export default function Home() {
             <div className="mt-6 flex justify-center md:absolute md:bottom-6 md:right-6 md:mt-0 md:justify-end">
               <Link
                 href="/search"
-                className="pointer-events-auto inline-flex items-center gap-2 bg-zinc-900 px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-black dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                className="btn-brand pointer-events-auto px-6 py-3 text-[10px] tracking-[0.2em]"
               >
                 Shop The Collection <IoArrowForward />
               </Link>
@@ -269,7 +288,7 @@ export default function Home() {
             </p>
             <Link
               href="/search?newArrival=true"
-              className="mt-8 inline-flex items-center gap-2 bg-zinc-900 px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-black dark:bg-white dark:text-black"
+              className="btn-brand mt-8 px-6 py-3 text-[10px] tracking-[0.2em]"
             >
               Shop Now <IoArrowForward />
             </Link>
@@ -293,7 +312,7 @@ export default function Home() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1200&q=80"
-                alt="Kirnya new collection"
+                alt="Zentro new collection"
                 className="h-full w-full object-cover"
               />
             </div>
@@ -332,9 +351,9 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 sm:gap-8 md:grid-cols-6 sm:overflow-visible">
+          <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-5 sm:gap-6 md:grid-cols-5 lg:grid-cols-10 sm:overflow-visible">
             {loading
-              ? Array.from({ length: 6 }).map((_, i) => (
+              ? Array.from({ length: 10 }).map((_, i) => (
                   <div key={i} className="flex w-28 shrink-0 flex-col items-center gap-3 sm:w-auto">
                     <div className="aspect-square w-full animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800" />
                     <div className="h-3 w-16 animate-pulse bg-zinc-200 dark:bg-zinc-800" />
@@ -393,6 +412,14 @@ export default function Home() {
                 ? newArrivals.map((p) => <ProductCard key={p._id} product={p} />)
                 : featured.slice(0, 8).map((p) => <ProductCard key={p._id} product={p} />)}
           </div>
+          <div className="mt-8 text-center sm:hidden">
+            <Link
+              href="/search"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-800 underline-offset-4 hover:underline dark:text-zinc-200"
+            >
+              Browse all products <IoArrowForward />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -415,7 +442,7 @@ export default function Home() {
           </p>
           <Link
             href="/search?featured=1"
-            className="mt-8 inline-flex items-center gap-2 bg-white px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-black transition hover:bg-zinc-200"
+            className="btn-brand-accent mt-8 px-8 py-3.5 text-[11px] tracking-[0.2em]"
           >
             Shop Featured <IoArrowForward />
           </Link>

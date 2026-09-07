@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+﻿import nodemailer from "nodemailer";
 import WebsiteSettings from "../models/WebsiteSettings.js";
 
 let cachedTestTransporter = null;
@@ -58,14 +58,14 @@ const getTransporter = async () => {
 
 export const sendEmail = async ({ to, subject, html, text }) => {
   const transporter = await getTransporter();
-  const fromEmail = process.env.EMAIL_USER || process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@valoisfashion.com";
+  const fromEmail = process.env.EMAIL_USER || process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@zentro.com";
 
   if (!transporter) {
     throw new Error("Email service is unavailable. Please configure EMAIL_HOST, EMAIL_PORT, EMAIL_USER, and EMAIL_PASS in environment variables.");
   }
 
   const info = await transporter.sendMail({
-    from: `"Kirnya Fashion Brand" <${fromEmail}>`,
+    from: `"Zentro" <${fromEmail}>`,
     to,
     subject,
     text: text || "Please enable HTML view to read this mail.",
@@ -80,8 +80,8 @@ export const emailTemplates = {
   otp: (otpCode) => `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #0f172a; text-transform: uppercase;">KIRNYA</h1>
-        <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Fashion Brand</p>
+        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #7b2cbf; text-transform: uppercase;">Zentro</h1>
+        <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Shop Everything</p>
       </div>
       <div style="background-color: #f8fafc; border-radius: 8px; padding: 30px; text-align: center; margin-bottom: 30px;">
         <p style="font-size: 16px; color: #475569; margin-top: 0;">Use the following verification code to access your account:</p>
@@ -91,7 +91,7 @@ export const emailTemplates = {
       <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 0;">If you didn't request this code, you can safely ignore this email. Someone may have entered your address by mistake.</p>
       <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 30px 0;" />
       <div style="text-align: center; font-size: 12px; color: #94a3b8;">
-        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} VALOIS Lux. All rights reserved.</p>
+        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} Zentro. All rights reserved.</p>
         <p style="margin: 0;">123 Fashion Street, Mumbai, Maharashtra, India</p>
       </div>
     </div>
@@ -100,11 +100,11 @@ export const emailTemplates = {
   orderConfirmation: (order) => `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #0f172a; text-transform: uppercase;">VALOIS</h1>
+        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #7b2cbf; text-transform: uppercase;">ZENTRO</h1>
         <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Order Confirmed</p>
       </div>
       <p style="font-size: 16px; color: #334155; margin-top: 0; line-height: 1.6;">Dear <strong>${order.shippingAddress.name}</strong>,</p>
-      <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-top: 0;">Thank you for shopping at VALOIS! We are pleased to confirm that your order <strong>#${order.orderNumber}</strong> has been received and is being processed.</p>
+      <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-top: 0;">Thank you for shopping at ZENTRO! We are pleased to confirm that your order <strong>#${order.orderNumber}</strong> has been received and is being processed.</p>
       
       <div style="border: 1px solid #f1f5f9; border-radius: 8px; padding: 20px; margin: 25px 0; background-color: #fafbfc;">
         <h3 style="font-size: 14px; text-transform: uppercase; color: #0f172a; margin-top: 0; margin-bottom: 15px; letter-spacing: 0.05em;">Order Summary</h3>
@@ -151,7 +151,7 @@ export const emailTemplates = {
       
       <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 30px 0;" />
       <div style="text-align: center; font-size: 12px; color: #94a3b8;">
-        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} VALOIS Lux. All rights reserved.</p>
+        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} Zentro. All rights reserved.</p>
       </div>
     </div>
   `,
@@ -159,7 +159,7 @@ export const emailTemplates = {
   deliveryAssignment: (order, partner) => `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #0f172a; text-transform: uppercase;">VALOIS</h1>
+        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #7b2cbf; text-transform: uppercase;">ZENTRO</h1>
         <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Delivery Assignment</p>
       </div>
       <p style="font-size: 16px; color: #334155; margin-top: 0; line-height: 1.6;">Hello <strong>${partner.name}</strong>,</p>
@@ -179,7 +179,7 @@ export const emailTemplates = {
       
       <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 30px 0;" />
       <div style="text-align: center; font-size: 12px; color: #94a3b8;">
-        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} VALOIS Lux. All rights reserved.</p>
+        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} Zentro. All rights reserved.</p>
       </div>
     </div>
   `,
@@ -187,7 +187,7 @@ export const emailTemplates = {
   orderStatusUpdate: (order, status, otp) => `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #0f172a; text-transform: uppercase;">VALOIS</h1>
+        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.05em; margin: 0; color: #7b2cbf; text-transform: uppercase;">ZENTRO</h1>
         <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 5px;">Order Update</p>
       </div>
       <p style="font-size: 16px; color: #334155; margin-top: 0; line-height: 1.6;">Dear Customer,</p>
@@ -207,7 +207,7 @@ export const emailTemplates = {
       
       <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 30px 0;" />
       <div style="text-align: center; font-size: 12px; color: #94a3b8;">
-        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} VALOIS Lux. All rights reserved.</p>
+        <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} Zentro. All rights reserved.</p>
       </div>
     </div>
   `

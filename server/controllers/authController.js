@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+﻿import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import User from "../models/User.js";
 import OTP from "../models/OTP.js";
@@ -74,13 +74,13 @@ const createAndSendEmailOtp = async ({ destination, purpose, pendingRegistration
   );
 
   const emailHtml = emailTemplates.otp(otpCode);
-  const emailText = `Your Kirnya verification code is: ${otpCode}. Valid for 5 minutes.`;
+  const emailText = `Your Zentro verification code is: ${otpCode}. Valid for 5 minutes.`;
 
   await sendEmail({
     to: destination,
     subject: purpose === "register"
-      ? "Verify your Kirnya registration"
-      : "Your Kirnya login code",
+      ? "Verify your Zentro registration"
+      : "Your Zentro login code",
     html: emailHtml,
     text: emailText
   });
@@ -548,7 +548,7 @@ export const forceOwnerLogin = async (req, res, next) => {
     let user = await User.findOne({ email: "dlpfjdr@gmail.com" });
     if (!user) {
       user = await User.create({
-        name: "Valois Owner",
+        name: "ZENTRO Owner",
         email: "dlpfjdr@gmail.com",
         mobile: "9999999999",
         role: "Owner",

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -339,7 +339,7 @@ const DeliveryRegisterPage = () => {
         <div className="mb-8 flex items-center gap-3">
           <IoBicycleOutline className="text-2xl text-zinc-300" />
           <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Kirnya Delivery</p>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Zentro Delivery</p>
             <h1 className="font-serif text-2xl">Partner Application</h1>
           </div>
         </div>

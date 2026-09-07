@@ -3,14 +3,14 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
-import { IoMailOutline, IoLogoFacebook, IoLogoInstagram, IoLogoTwitter, IoArrowForward } from "react-icons/io5";
+import { IoLogoFacebook, IoLogoInstagram, IoLogoTwitter, IoArrowForward } from "react-icons/io5";
 import toast from "react-hot-toast";
 
 const Footer = () => {
   const footerDetails = useSelector((state) => state.settings.footerDetails) || {
-    contactEmail: "support@kirnya.com",
+    contactEmail: "support@zentro.com",
     contactPhone: "+91 9999999999",
-    address: "123 Fashion St, Mumbai, India"
+    address: "123 Commerce St, Mumbai, India"
   };
 
   const [newsletterEmail, setNewsletterEmail] = useState("");
@@ -18,7 +18,7 @@ const Footer = () => {
   const handleSubscribe = (e) => {
     e.preventDefault();
     if (newsletterEmail.trim() && newsletterEmail.includes("@")) {
-      toast.success("Successfully subscribed to Kirnya Newsletter! Check your inbox.");
+      toast.success("Successfully subscribed to Zentro Newsletter! Check your inbox.");
       setNewsletterEmail("");
     } else {
       toast.error("Please enter a valid email address.");
@@ -26,67 +26,75 @@ const Footer = () => {
   };
 
   return (
-    <footer className="w-full bg-zinc-50 border-t border-zinc-100 dark:bg-zinc-950 dark:border-zinc-900 transition-colors">
+    <footer className="w-full border-t border-zinc-100 bg-zinc-50 transition-colors dark:border-zinc-900 dark:bg-zinc-950">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-          
-          {/* Brand Col */}
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-4">
-            <Link href="/" className="flex items-center gap-2.5">
+            <Link
+              href="/"
+              className="inline-flex items-start overflow-hidden"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Kirnya Logo" className="h-9 w-auto object-contain rounded-md" />
-              <div className="flex flex-col">
-                <span
-                  className="text-xl font-black tracking-tight uppercase leading-none"
-                  style={{
-                    background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent"
-                  }}
-                >
-                  Kirnya
-                </span>
-                <span
-                  className="text-[9px] font-bold uppercase tracking-[0.2em] mt-0.5"
-                  style={{
-                    background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent"
-                  }}
-                >
-                  FASHION BRAND
-                </span>
-              </div>
+              <img
+                src="/logo-navbar.png?v=6"
+                alt="Zentro"
+                className="h-40 w-auto max-w-[180px] object-contain object-left"
+              />
             </Link>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
-              Discover curated luxury apparel and accessories selected from Kirnya&apos;s finest design collections. Redefining modern fashion.
+            <p className="max-w-sm text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              Zentro is your everyday marketplace for men, women, kids, home, beauty, and more —
+              quality finds at great prices.
             </p>
-            <div className="flex gap-4 mt-2 text-lg text-zinc-400 dark:text-zinc-500">
-              <a href="#" className="hover:text-black dark:hover:text-white transition-colors"><IoLogoFacebook /></a>
-              <a href="#" className="hover:text-black dark:hover:text-white transition-colors"><IoLogoInstagram /></a>
-              <a href="#" className="hover:text-black dark:hover:text-white transition-colors"><IoLogoTwitter /></a>
+            <div className="mt-2 flex gap-4 text-lg text-zinc-400 dark:text-zinc-500">
+              <a href="#" className="transition-colors hover:text-brand-purple">
+                <IoLogoFacebook />
+              </a>
+              <a href="#" className="transition-colors hover:text-brand-purple">
+                <IoLogoInstagram />
+              </a>
+              <a href="#" className="transition-colors hover:text-brand-purple">
+                <IoLogoTwitter />
+              </a>
             </div>
           </div>
 
-          {/* Quick Links */}
           <div>
-            <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-widest mb-4">Categories</h4>
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-zinc-900 dark:text-white">
+              Categories
+            </h4>
             <div className="flex flex-col gap-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              <Link href="/search?category=Dresses%20%26%20Gowns" className="hover:text-black dark:hover:text-white transition-colors">Dresses & Gowns</Link>
-              <Link href="/search?category=Tops%20%26%20Tees" className="hover:text-black dark:hover:text-white transition-colors">Tops & Satin Blouses</Link>
-              <Link href="/search?category=Ethnic%20%26%20Sarees" className="hover:text-black dark:hover:text-white transition-colors">Designer Sarees & Lehengas</Link>
-              <Link href="/search?category=Footwear%20%26%20Heels" className="hover:text-black dark:hover:text-white transition-colors">Stilettos & Heels</Link>
-              <Link href="/search?category=Bags%20%26%20Accessories" className="hover:text-black dark:hover:text-white transition-colors">Luxury Handbags</Link>
+              <Link href="/search?category=Women" className="transition-colors hover:text-brand-purple">
+                Women
+              </Link>
+              <Link href="/search?category=Men" className="transition-colors hover:text-brand-purple">
+                Men
+              </Link>
+              <Link href="/search?category=Kids" className="transition-colors hover:text-brand-purple">
+                Kids
+              </Link>
+              <Link
+                href="/search?category=Home%20%26%20Kitchen"
+                className="transition-colors hover:text-brand-purple"
+              >
+                Home & Kitchen
+              </Link>
+              <Link
+                href="/search?category=Electronics"
+                className="transition-colors hover:text-brand-purple"
+              >
+                Electronics
+              </Link>
             </div>
           </div>
 
-          {/* Contact Col */}
           <div>
-            <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-widest mb-4">Customer Support</h4>
-            <div className="flex flex-col gap-3 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-zinc-900 dark:text-white">
+              Customer Support
+            </h4>
+            <div className="flex flex-col gap-3 text-xs font-medium leading-relaxed text-zinc-500 dark:text-zinc-400">
               <p>
-                <strong>Address:</strong><br />
+                <strong>Address:</strong>
+                <br />
                 {footerDetails.address}
               </p>
               <p>
@@ -98,11 +106,12 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Newsletter Col */}
           <div>
-            <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-widest mb-4">Newsletter</h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4">
-              Sign up to receive early sale notifications, new arrivals catalogs, and fashion trend updates from Kirnya.
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-zinc-900 dark:text-white">
+              Newsletter
+            </h4>
+            <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              Sign up for deals, new arrivals, and updates from Zentro.
             </p>
             <form onSubmit={handleSubscribe} className="relative flex items-center">
               <input
@@ -110,30 +119,34 @@ const Footer = () => {
                 placeholder="Your email address"
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
-                className="w-full rounded-full border border-zinc-200 bg-white py-2.5 pl-4 pr-10 text-xs font-semibold outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-700 dark:text-white"
+                className="w-full rounded-full border border-zinc-200 bg-white py-2.5 pl-4 pr-10 text-xs font-semibold outline-none focus:border-brand-purple dark:border-zinc-800 dark:bg-zinc-900 dark:text-white dark:focus:border-brand-purple"
               />
               <button
                 type="submit"
-                className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-zinc-950 text-white hover:bg-black dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white hover:opacity-90"
               >
                 <IoArrowForward className="text-sm" />
               </button>
             </form>
           </div>
-
         </div>
 
-        <hr className="border-zinc-100 my-10 dark:border-zinc-900" />
+        <hr className="my-10 border-zinc-100 dark:border-zinc-900" />
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
-          <p>&copy; {new Date().getFullYear()} Kirnya Fashion Brand. All rights reserved.</p>
+        <div className="flex flex-col items-center justify-between gap-4 text-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500 sm:flex-row">
+          <p>&copy; {new Date().getFullYear()} Zentro. All rights reserved.</p>
           <div className="flex gap-4">
-            <a href="#" className="hover:underline">Privacy Policy</a>
-            <a href="#" className="hover:underline">Terms of Service</a>
-            <a href="#" className="hover:underline">Sitemap</a>
+            <a href="#" className="hover:underline">
+              Privacy Policy
+            </a>
+            <a href="#" className="hover:underline">
+              Terms of Service
+            </a>
+            <a href="#" className="hover:underline">
+              Sitemap
+            </a>
           </div>
         </div>
-
       </div>
     </footer>
   );

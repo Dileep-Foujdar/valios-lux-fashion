@@ -205,21 +205,45 @@ const Navbar = () => {
     }
   };
 
-  const categories = [
-    { name: "Dresses & Gowns", shortName: "Dresses", link: "/search?category=Dresses%20%26%20Gowns" },
-    { name: "Tops & Tees", shortName: "Tops & Tees", link: "/search?category=Tops%20%26%20Tees" },
-    { name: "Ethnic & Sarees", shortName: "Ethnic Wear", link: "/search?category=Ethnic%20%26%20Sarees" },
-    { name: "Bottoms & Jeans", shortName: "Bottoms", link: "/search?category=Bottoms%20%26%20Jeans" },
-    { name: "Jackets & Shrugs", shortName: "Jackets", link: "/search?category=Jackets%20%26%20Shrugs" },
-    { name: "Footwear & Heels", shortName: "Heels & Shoes", link: "/search?category=Footwear%20%26%20Heels" },
-    { name: "Bags & Accessories", shortName: "Bags & Accessories", link: "/search?category=Bags%20%26%20Accessories" },
-    { name: "Jewellery & Beauty", shortName: "Jewellery", link: "/search?category=Jewellery%20%26%20Beauty" }
-  ];
+  const [navCategories, setNavCategories] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/products/categories")
+      .then((res) => {
+        if (cancelled || !res.data?.success) return;
+        const list = (res.data.categories || []).map((c) => ({
+          name: c.name,
+          shortName: c.name.split(" ")[0],
+          link: `/search?category=${encodeURIComponent(c.name)}`
+        }));
+        setNavCategories(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categories =
+    navCategories.length > 0
+      ? navCategories
+      : [
+          { name: "Women", shortName: "Women", link: "/search?category=Women" },
+          { name: "Men", shortName: "Men", link: "/search?category=Men" },
+          { name: "Kids", shortName: "Kids", link: "/search?category=Kids" },
+          { name: "Footwear", shortName: "Footwear", link: "/search?category=Footwear" },
+          { name: "Beauty & Health", shortName: "Beauty", link: "/search?category=Beauty%20%26%20Health" },
+          { name: "Home & Kitchen", shortName: "Home", link: "/search?category=Home%20%26%20Kitchen" },
+          { name: "Electronics", shortName: "Electronics", link: "/search?category=Electronics" },
+          { name: "Sports & Fitness", shortName: "Sports", link: "/search?category=Sports%20%26%20Fitness" }
+        ];
 
   return (
     <>
       <header className="sticky top-0 z-50 w-full max-w-full overflow-x-clip border-b border-zinc-100 bg-white/85 backdrop-blur-md dark:border-zinc-900 dark:bg-black/85 transition-colors">
-        <div className="mx-auto flex max-w-7xl h-14 sm:h-16 items-center justify-between px-2 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-2 sm:h-20 sm:px-6 lg:px-8">
 
           {/* Left Block: Mobile Menu & Logo */}
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -231,32 +255,17 @@ const Navbar = () => {
               <IoMenuOutline className="text-xl sm:text-2xl" />
             </button>
 
-            {/* LOGO */}
-            <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group flex-shrink-0">
+            {/* Dark Zentro lockup — black pad so white wordmark stays visible */}
+            <Link
+              href="/"
+              className="flex shrink-0 items-center overflow-hidden"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Kirnya Logo" className="h-15 scale-105 sm:h-9 xl:h-18 w-auto object-cover" />
-              <div className="flex flex-col flex-shrink-0">
-                <span
-                  className="text-base sm:text-xl xl:text-2xl font-black tracking-tight uppercase leading-none"
-                  style={{
-                    background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent"
-                  }}
-                >
-                  Kirnya
-                </span>
-                <span
-                  className="text-[7px] sm:text-[8px] xl:text-[9px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] mt-0.5"
-                  style={{
-                    background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent"
-                  }}
-                >
-                  FASHION BRAND
-                </span>
-              </div>
+              <img
+                src="/logo-navbar.png?v=6"
+                alt="Zentro"
+                className="h-20 scale-110 w-auto max-w-[132px] object-contain object-left sm:h-12 sm:max-w-[156px] xl:h-14 xl:max-w-[180px]"
+              />
             </Link>
           </div>
 
@@ -266,7 +275,7 @@ const Navbar = () => {
               <Link
                 key={cat.name}
                 href={cat.link}
-                className="whitespace-nowrap hover:text-black dark:hover:text-white transition-colors"
+                className="whitespace-nowrap hover:text-brand-purple transition-colors"
               >
                 {cat.shortName || cat.name}
               </Link>
@@ -278,11 +287,11 @@ const Navbar = () => {
             <form onSubmit={handleSearchSubmit} className="relative">
               <input
                 type="text"
-                placeholder="Search designer fashion..."
+                placeholder="Search on Zentro..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setShowSuggestions(true)}
-                className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-4 pr-16 text-xs font-medium outline-none transition-all focus:border-zinc-400 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-700 dark:focus:bg-zinc-950 dark:text-white"
+                className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-4 pr-16 text-xs font-medium outline-none transition-all focus:border-brand-purple focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-brand-purple dark:focus:bg-zinc-950 dark:text-white"
               />
               <div className="absolute right-2.5 top-1.5 flex gap-1.5 items-center">
                 <button
@@ -294,7 +303,7 @@ const Navbar = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-zinc-100"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-white hover:opacity-90"
                 >
                   <IoSearchOutline className="text-sm" />
                 </button>
@@ -368,7 +377,7 @@ const Navbar = () => {
             >
               <IoBagOutline className="text-lg sm:text-xl" />
               {cartItems.length > 0 && (
-                <span className="absolute top-1 right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-black text-[8px] sm:text-[9px] font-bold text-white dark:bg-white dark:text-black">
+                <span className="absolute top-1 right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full badge-brand text-[8px] sm:text-[9px] font-bold">
                   {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
                 </span>
               )}
@@ -483,31 +492,17 @@ const Navbar = () => {
               className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col p-6 shadow-2xl mobile-drawer-bg"
             >
               <div className="flex items-center justify-between">
-                <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2">
+                <Link
+                  href="/"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center overflow-hidden rounded-2xl bg-black px-2 py-1 ring-1 ring-white/15"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.png" alt="Kirnya Logo" className="h-8 w-auto object-contain" />
-                  <div className="flex flex-col">
-                    <span
-                      className="text-lg font-black uppercase tracking-tight leading-none"
-                      style={{
-                        background: "radial-gradient(circle at 20% 20%, #f97316 0%, #d946ef 40%, #8b5cf6 70%, #06b6d4 100%)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent"
-                      }}
-                    >
-                      Kirnya
-                    </span>
-                    <span
-                      className="text-[8px] font-bold uppercase tracking-widest mt-0.5"
-                      style={{
-                        background: "linear-gradient(90deg, #d946ef 0%, #8b5cf6 50%, #06b6d4 100%)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent"
-                      }}
-                    >
-                      FASHION BRAND
-                    </span>
-                  </div>
+                  <img
+                    src="/logo-navbar.png?v=6"
+                    alt="Zentro"
+                    className="h-11 w-auto max-w-[140px] object-contain object-left"
+                  />
                 </Link>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -522,7 +517,7 @@ const Navbar = () => {
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <input
                     type="text"
-                    placeholder="Search clothing..."
+                    placeholder="Search on Zentro..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-4 pr-10 text-xs font-semibold outline-none focus:border-zinc-400 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-700 dark:text-white"

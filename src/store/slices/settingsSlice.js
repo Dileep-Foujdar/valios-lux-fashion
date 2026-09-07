@@ -3,19 +3,19 @@ import { DEFAULT_PRODUCT_VISIBILITY } from "../../utils/productDisplay.js";
 
 const initialState = {
   theme: "system",
-  brandName: "Kirnya Fashion Brand",
-  logoUrl: "/logo.png",
-  faviconUrl: "/favicon.ico",
+  brandName: "Zentro",
+  logoUrl: "/logo.png?v=5",
+  faviconUrl: "/favicon.png?v=5",
   seo: {
-    title: "Kirnya | Premium Fashion Brand",
-    metaDescription: "Experience Kirnya luxury fashion clothing, shoes, watches, and accessories."
+    title: "Zentro | Shop Everything",
+    metaDescription: "Zentro — Men, Women, Kids, Home, Beauty & more. Shop fashion, electronics, and everyday essentials."
   },
   bannerImages: [],
   heroSlider: [],
   footerDetails: {
-    contactEmail: "support@kirnya.com",
+    contactEmail: "support@zentro.com",
     contactPhone: "+91 9999999999",
-    address: "123 Fashion St, Mumbai, India"
+    address: "123 Commerce St, Mumbai, India"
   },
   deliveryCharges: {
     minAmountForFreeDelivery: 999,

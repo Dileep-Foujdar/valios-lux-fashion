@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Reverse-geocode lat/lng via OpenStreetMap Nominatim (no API key).
  * Respect Nominatim usage policy: identify app via User-Agent.
  */
@@ -12,7 +12,7 @@ export const reverseGeocode = async (latitude, longitude) => {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "KirnyaEcommerce/1.0 (delivery-checkout)",
+      "User-Agent": "ZentroEcommerce/1.0 (delivery-checkout)",
       Accept: "application/json"
     }
   });

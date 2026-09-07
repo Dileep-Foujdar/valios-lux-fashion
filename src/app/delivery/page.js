@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -265,7 +265,7 @@ const DeliveryDashboard = () => {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
         <div className="mb-6 h-px w-16 bg-zinc-700" />
-        <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Kirnya Delivery</p>
+        <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Zentro Delivery</p>
         <h1 className="mt-3 font-serif text-3xl">{copy.title}</h1>
         <p className="mt-3 max-w-md text-sm text-zinc-400">{copy.body}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs">
@@ -304,7 +304,7 @@ const DeliveryDashboard = () => {
       <header className="sticky top-0 z-20 border-b border-zinc-900/80 bg-zinc-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Kirnya</p>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Zentro</p>
             <h1 className="font-serif text-xl">Partner Dashboard</h1>
           </div>
           <div className="flex items-center gap-3">

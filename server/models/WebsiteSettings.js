@@ -16,10 +16,10 @@ const BadgeLibrarySchema = new mongoose.Schema({
 const WebsiteSettingsSchema = new mongoose.Schema({
   theme: { type: String, enum: ["light", "dark", "system"], default: "system" },
   seo: {
-    title: { type: String, default: "Premium Fashion E-Commerce" },
-    metaDescription: { type: String, default: "Discover premium fashion clothing, shoes, watches, and accessories." },
+    title: { type: String, default: "Zentro | Shop Everything" },
+    metaDescription: { type: String, default: "Zentro marketplace for men, women, kids, home, beauty, electronics and everyday essentials." },
     ogImage: { type: String, default: "" },
-    keywords: { type: [String], default: ["fashion", "e-commerce", "clothing", "premium"] }
+    keywords: { type: [String], default: ["zentro", "marketplace", "fashion", "electronics", "home"] }
   },
   smtp: {
     host: { type: String, default: "" },
@@ -46,9 +46,9 @@ const WebsiteSettingsSchema = new mongoose.Schema({
     link: { type: String }
   }],
   footerDetails: {
-    contactEmail: { type: String, default: "support@fashionstore.com" },
+    contactEmail: { type: String, default: "support@zentro.com" },
     contactPhone: { type: String, default: "+91 9999999999" },
-    address: { type: String, default: "123 Fashion Street, Mumbai, India" },
+    address: { type: String, default: "123 Commerce St, Mumbai, India" },
     facebook: { type: String, default: "" },
     instagram: { type: String, default: "" },
     twitter: { type: String, default: "" }
