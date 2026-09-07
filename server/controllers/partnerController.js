@@ -73,8 +73,6 @@ const createPartnerOtp = async ({ destination, purpose }) => {
       : "Delivery partner login OTP",
     html: emailTemplates.otp(code)
   });
-
-  return process.env.NODE_ENV === "production" ? undefined : code;
 };
 
 export const requestPartnerOtp = async (req, res, next) => {
@@ -103,12 +101,11 @@ export const requestPartnerOtp = async (req, res, next) => {
       }
     }
 
-    const otpCode = await createPartnerOtp({ destination, purpose });
+    await createPartnerOtp({ destination, purpose });
     res.status(200).json({
       success: true,
-      message: "OTP sent to email",
-      purpose,
-      ...(otpCode ? { devOtp: otpCode } : {})
+      message: "OTP sent to your email. Check your inbox.",
+      purpose
     });
   } catch (error) {
     next(error);

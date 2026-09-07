@@ -632,8 +632,8 @@ const AdminDashboardInner = () => {
 
                 {/* TAB: SHOP CONFIGURATION */}
                 {activeTab === "settings" && websiteSettings && (
-                  <div className="rounded-2xl border border-zinc-100 p-6 dark:border-zinc-900 bg-white shadow-sm flex flex-col gap-6 animate-fadeIn">
-                    <h3 className="text-sm font-extrabold uppercase tracking-wider border-b border-zinc-100 pb-4 dark:border-zinc-900">
+                  <div className="rounded-2xl border border-zinc-100 p-6 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm flex flex-col gap-6 animate-fadeIn text-zinc-900 dark:text-zinc-100">
+                    <h3 className="text-sm font-extrabold uppercase tracking-wider border-b border-zinc-100 pb-4 dark:border-zinc-800">
                       System Credentials & Config
                     </h3>
 
@@ -643,7 +643,7 @@ const AdminDashboardInner = () => {
                         <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                           Global Product Visibility
                         </h4>
-                        <p className="text-[11px] text-zinc-500">
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                           Defaults for every product. Individual products can override these in the product editor.
                         </p>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -655,9 +655,11 @@ const AdminDashboardInner = () => {
                             return (
                               <label
                                 key={key}
-                                className="flex items-center justify-between gap-3 rounded-xl border border-zinc-100 px-3 py-2 text-xs font-semibold dark:border-zinc-800"
+                                className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs font-semibold text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                               >
-                                <span>{VISIBILITY_LABELS[key] || key}</span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  {VISIBILITY_LABELS[key] || key}
+                                </span>
                                 <input
                                   type="checkbox"
                                   checked={visibility[key] !== false}
@@ -670,7 +672,7 @@ const AdminDashboardInner = () => {
                                       }
                                     })
                                   }
-                                  className="h-4 w-4"
+                                  className="h-4 w-4 shrink-0 accent-black dark:accent-white"
                                 />
                               </label>
                             );
@@ -723,7 +725,7 @@ const AdminDashboardInner = () => {
                                   setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
                                 }}
                                 placeholder="Label"
-                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold dark:border-zinc-800 dark:bg-zinc-900"
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                               />
                               <input
                                 value={badge.key || ""}
@@ -733,7 +735,7 @@ const AdminDashboardInner = () => {
                                   setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
                                 }}
                                 placeholder="Key"
-                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold dark:border-zinc-800 dark:bg-zinc-900"
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                               />
                               <input
                                 type="color"
@@ -754,9 +756,9 @@ const AdminDashboardInner = () => {
                                   setWebsiteSettings({ ...websiteSettings, badgeLibrary: next });
                                 }}
                                 placeholder="Priority"
-                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold dark:border-zinc-800 dark:bg-zinc-900"
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                               />
-                              <label className="flex items-center gap-2 text-[11px] font-semibold">
+                              <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-800 dark:text-zinc-100">
                                 <input
                                   type="checkbox"
                                   checked={badge.enabled !== false}
@@ -794,24 +796,24 @@ const AdminDashboardInner = () => {
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">Store Title</label>
                           <input
                             type="text"
-                            value={websiteSettings.seo?.title}
+                            value={websiteSettings.seo?.title || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               seo: { ...websiteSettings.seo, title: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                         <div className="sm:col-span-2">
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">Meta Description</label>
                           <textarea
                             rows={3}
-                            value={websiteSettings.seo?.metaDescription}
+                            value={websiteSettings.seo?.metaDescription || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               seo: { ...websiteSettings.seo, metaDescription: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                       </div>
@@ -827,48 +829,48 @@ const AdminDashboardInner = () => {
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">SMTP Host</label>
                           <input
                             type="text"
-                            value={websiteSettings.smtp?.host}
+                            value={websiteSettings.smtp?.host || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               smtp: { ...websiteSettings.smtp, host: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                         <div>
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">Port</label>
                           <input
                             type="number"
-                            value={websiteSettings.smtp?.port}
+                            value={websiteSettings.smtp?.port ?? 587}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               smtp: { ...websiteSettings.smtp, port: Number(e.target.value) }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                         <div className="sm:col-span-2">
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">Username (Email)</label>
                           <input
                             type="text"
-                            value={websiteSettings.smtp?.user}
+                            value={websiteSettings.smtp?.user || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               smtp: { ...websiteSettings.smtp, user: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                         <div>
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">SMTP Password</label>
                           <input
                             type="password"
-                            value={websiteSettings.smtp?.pass}
+                            value={websiteSettings.smtp?.pass || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               smtp: { ...websiteSettings.smtp, pass: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                       </div>
@@ -884,36 +886,36 @@ const AdminDashboardInner = () => {
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">Account SID</label>
                           <input
                             type="text"
-                            value={websiteSettings.sms?.twilioSid}
+                            value={websiteSettings.sms?.twilioSid || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               sms: { ...websiteSettings.sms, twilioSid: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                         <div>
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">Auth Token</label>
                           <input
                             type="password"
-                            value={websiteSettings.sms?.token}
+                            value={websiteSettings.sms?.token || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               sms: { ...websiteSettings.sms, token: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                         <div>
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">Twilio Number</label>
                           <input
                             type="text"
-                            value={websiteSettings.sms?.fromNum}
+                            value={websiteSettings.sms?.fromNum || ""}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               sms: { ...websiteSettings.sms, fromNum: e.target.value }
                             })}
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                       </div>

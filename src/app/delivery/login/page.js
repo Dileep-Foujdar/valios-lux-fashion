@@ -51,7 +51,6 @@ const DeliveryLoginPage = () => {
         setCountdown(60);
         resetOtp();
         toast.success("OTP sent to your email");
-        if (res.data.devOtp) toast(`Dev OTP: ${res.data.devOtp}`, { duration: 8000 });
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to send OTP");
