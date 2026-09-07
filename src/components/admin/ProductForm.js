@@ -675,9 +675,9 @@ const ProductForm = ({ mode = "create", productId = null }) => {
                 return (
                   <div
                     key={key}
-                    className="flex items-center justify-between gap-2 rounded-xl border border-zinc-100 px-3 py-2 dark:border-zinc-800"
+                    className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
                   >
-                    <span className="text-xs font-semibold">{VISIBILITY_LABELS[key] || key}</span>
+                    <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">{VISIBILITY_LABELS[key] || key}</span>
                     <select
                       value={mode}
                       onChange={(e) => {

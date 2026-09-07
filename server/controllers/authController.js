@@ -84,8 +84,6 @@ const createAndSendEmailOtp = async ({ destination, purpose, pendingRegistration
     html: emailHtml,
     text: emailText
   });
-
-  return otpCode;
 };
 
 const validateLocationPayload = (location) => {
@@ -219,16 +217,12 @@ export const requestOTP = async (req, res, next) => {
       }
 
       try {
-        const otpCode = await createAndSendEmailOtp({ destination, purpose: "login" });
-        const payload = {
+        await createAndSendEmailOtp({ destination, purpose: "login" });
+        return res.status(200).json({
           success: true,
           purpose: "login",
-          message: `OTP sent successfully to ${destination}`
-        };
-        if (process.env.NODE_ENV !== "production") {
-          payload.otp = otpCode;
-        }
-        return res.status(200).json(payload);
+          message: `OTP sent to your email (${destination}). Check your inbox.`
+        });
       } catch (emailErr) {
         return res.status(400).json({
           success: false,
@@ -273,7 +267,7 @@ export const requestOTP = async (req, res, next) => {
     }
 
     try {
-      const otpCode = await createAndSendEmailOtp({
+      await createAndSendEmailOtp({
         destination,
         purpose: "register",
         pendingRegistration: {
@@ -290,15 +284,11 @@ export const requestOTP = async (req, res, next) => {
         }
       });
 
-      const payload = {
+      return res.status(200).json({
         success: true,
         purpose: "register",
-        message: `Verification OTP sent to ${destination}. Verify to create your account.`
-      };
-      if (process.env.NODE_ENV !== "production") {
-        payload.otp = otpCode;
-      }
-      return res.status(200).json(payload);
+        message: `Verification OTP sent to your email (${destination}). Check your inbox to continue.`
+      });
     } catch (emailErr) {
       return res.status(400).json({
         success: false,

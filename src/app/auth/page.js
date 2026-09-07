@@ -178,10 +178,7 @@ const AuthPage = () => {
       });
 
       if (res.data.success) {
-        toast.success(res.data.message);
-        if (res.data.otp) {
-          toast(`[DEV] OTP: ${res.data.otp}`, { icon: "🔑", duration: 15000 });
-        }
+        toast.success(res.data.message || "OTP sent to your email");
         setEmailForOtp(email);
         setStep("otp");
         setCountdown(60);
@@ -227,10 +224,7 @@ const AuthPage = () => {
 
       const res = await api.post("/auth/otp/request", payload);
       if (res.data.success) {
-        toast.success(res.data.message);
-        if (res.data.otp) {
-          toast(`[DEV] OTP: ${res.data.otp}`, { icon: "🔑", duration: 15000 });
-        }
+        toast.success(res.data.message || "OTP sent to your email");
         setRegisterSnapshot(payload);
         setEmailForOtp(email);
         setStep("otp");
@@ -285,10 +279,7 @@ const AuthPage = () => {
 
       const res = await api.post("/auth/otp/request", payload);
       if (res.data.success) {
-        toast.success("New verification code sent");
-        if (res.data.otp) {
-          toast(`[DEV] OTP: ${res.data.otp}`, { icon: "🔑", duration: 15000 });
-        }
+        toast.success("New verification code sent to your email");
         setCountdown(60);
       }
     } catch (err) {

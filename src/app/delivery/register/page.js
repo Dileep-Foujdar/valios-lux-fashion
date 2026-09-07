@@ -204,8 +204,7 @@ const DeliveryRegisterPage = () => {
       if (res.data.success) {
         setStep("otp");
         setCountdown(60);
-        toast.success("OTP sent");
-        if (res.data.devOtp) toast(`Dev OTP: ${res.data.devOtp}`, { duration: 8000 });
+        toast.success("OTP sent to your email");
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to send OTP");
