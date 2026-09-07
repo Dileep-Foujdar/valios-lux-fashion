@@ -26,12 +26,15 @@ const scriptDisplay = Great_Vibes({
 });
 
 export const metadata = {
-  title: "Kirnya | Premium Fashion Brand",
-  description: "Experience Kirnya's luxury fashion clothing, shoes, watches, and accessories.",
+  title: "Zentro | Shop Everything",
+  description: "Zentro — Men, Women, Kids, Home, Beauty & more. Shop fashion, electronics, and everyday essentials.",
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.png",
-    apple: "/logo.png",
+    icon: [
+      { url: "/favicon.png?v=5", type: "image/png", sizes: "512x512" },
+      { url: "/icon.png?v=5", type: "image/png", sizes: "512x512" }
+    ],
+    shortcut: "/favicon.png?v=5",
+    apple: "/favicon.png?v=5"
   },
 };
 

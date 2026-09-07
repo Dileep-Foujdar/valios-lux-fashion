@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -201,7 +201,7 @@ const CartPage = () => {
                         </button>
                       </div>
                       <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase mt-0.5">
-                        Brand: {item.product?.brand || "Valois"}
+                        Brand: {item.product?.brand || "ZENTRO"}
                       </p>
                       <div className="flex gap-3 text-[10px] text-zinc-500 font-bold mt-1.5 uppercase">
                         <span>Size: {item.size || "Standard"}</span>

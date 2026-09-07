@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+﻿import Stripe from "stripe";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import Order from "../models/Order.js";
@@ -81,7 +81,7 @@ export const processStripePayment = async (req, res, next) => {
           price_data: {
             currency: "inr",
             product_data: {
-              name: `Kirnya Fashion Order #${order.orderNumber}`,
+              name: `Zentro Order #${order.orderNumber}`,
               description: order.items.map((i) => i.product.title).join(", ")
             },
             unit_amount: amountInCents

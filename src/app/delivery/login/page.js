@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
@@ -104,7 +104,7 @@ const DeliveryLoginPage = () => {
           <div className="mb-10 flex items-center gap-3">
             <IoBicycleOutline className="text-3xl text-zinc-300" />
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Kirnya</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Zentro</p>
               <h1 className="font-serif text-3xl tracking-tight">Partner Login</h1>
             </div>
           </div>

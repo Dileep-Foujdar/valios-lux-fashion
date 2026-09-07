@@ -1,19 +1,23 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 import Category from "../models/Category.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import Coupon from "../models/Coupon.js";
 import WebsiteSettings from "../models/WebsiteSettings.js";
 
+const toSubs = (names) => names.map((name, order) => ({ name, enabled: true, order }));
+
 const categoriesData = [
-  { name: "Dresses & Gowns", slug: "dresses-gowns", image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=600&q=80", subcategories: ["Maxi Dresses", "Cocktail Dresses", "Bodycon Dresses", "Evening Gowns"] },
-  { name: "Tops & Tees", slug: "tops-tees", image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80", subcategories: ["Crop Tops", "Satin Blouses", "Casual Tees", "Shirts"] },
-  { name: "Ethnic & Sarees", slug: "ethnic-sarees", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80", subcategories: ["Designer Sarees", "Anarkali Sets", "Lehengas", "Kurta Sets"] },
-  { name: "Bottoms & Jeans", slug: "bottoms-jeans", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=600&q=80", subcategories: ["High-Waist Jeans", "Wide Leg Trousers", "Skirts", "Palazzos"] },
-  { name: "Jackets & Shrugs", slug: "jackets-shrugs", image: "https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80", subcategories: ["Blazers", "Leather Jackets", "Cardigans", "Denim Jackets"] },
-  { name: "Footwear & Heels", slug: "footwear-heels", image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=600&q=80", subcategories: ["Stiletto Heels", "Sandals", "Sneakers", "Flats"] },
-  { name: "Bags & Accessories", slug: "bags-accessories", image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80", subcategories: ["Handbags", "Clutches", "Tote Bags", "Sunglasses"] },
-  { name: "Jewellery & Beauty", slug: "jewellery-beauty", image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=600&q=80", subcategories: ["Necklaces", "Earring Sets", "Lipsticks", "Perfumes"] }
+  { name: "Women", slug: "women", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=80", enabled: true, order: 0, subcategories: toSubs(["Kurtis & Tunics", "Sarees", "Western Dresses", "Tops & Tees", "Jeans & Trousers", "Ethnic Sets"]) },
+  { name: "Men", slug: "men", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80", enabled: true, order: 1, subcategories: toSubs(["T-Shirts", "Casual Shirts", "Jeans", "Ethnic Wear", "Jackets", "Trousers"]) },
+  { name: "Kids", slug: "kids", image: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=600&q=80", enabled: true, order: 2, subcategories: toSubs(["Boys Clothing", "Girls Clothing", "Infant Wear", "Kids Footwear", "School Essentials"]) },
+  { name: "Footwear", slug: "footwear", image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=600&q=80", enabled: true, order: 3, subcategories: toSubs(["Women Heels", "Women Flats", "Men Sneakers", "Men Formal Shoes", "Sandals & Flip-Flops"]) },
+  { name: "Bags & Luggage", slug: "bags-luggage", image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80", enabled: true, order: 4, subcategories: toSubs(["Handbags", "Backpacks", "Sling Bags", "Wallets", "Travel Luggage"]) },
+  { name: "Jewellery", slug: "jewellery", image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=600&q=80", enabled: true, order: 5, subcategories: toSubs(["Necklaces", "Earrings", "Bangles & Bracelets", "Rings", "Artificial Jewellery Sets"]) },
+  { name: "Beauty & Health", slug: "beauty-health", image: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=600&q=80", enabled: true, order: 6, subcategories: toSubs(["Makeup", "Skincare", "Hair Care", "Fragrances", "Personal Care"]) },
+  { name: "Home & Kitchen", slug: "home-kitchen", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=600&q=80", enabled: true, order: 7, subcategories: toSubs(["Home Decor", "Kitchen Tools", "Bedding", "Storage", "Lighting"]) },
+  { name: "Electronics", slug: "electronics", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80", enabled: true, order: 8, subcategories: toSubs(["Headphones", "Smart Watches", "Mobile Accessories", "Power Banks", "Speakers"]) },
+  { name: "Sports & Fitness", slug: "sports-fitness", image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=600&q=80", enabled: true, order: 9, subcategories: toSubs(["Activewear", "Yoga", "Gym Accessories", "Sports Shoes", "Outdoor"]) }
 ];
 
 const womenProductsData = [
@@ -86,75 +90,82 @@ const womenProductsData = [
 const generateProducts = (categoriesMap) => {
   const products = [];
   const brands = {
-    Men: ["Zara", "H&M", "Tommy Hilfiger", "Calvin Klein", "Levi's"],
-    Women: ["Gucci", "Prada", "Vero Moda", "Only", "Mango"],
-    Kids: ["Carter's", "Mothercare", "Gini & Jony", "Adidas Kids"],
-    Shoes: ["Nike", "Adidas", "Puma", "Bata", "Aldo"],
-    Accessories: ["Fossil", "Ray-Ban", "Oakley", "Montblanc"],
-    Watches: ["Rolex", "Seiko", "Casio", "Titan", "Fossil"],
-    Bags: ["Louis Vuitton", "Michael Kors", "Caprese", "Samsonite", "Wildcraft"],
-    Jewellery: ["Tiffany & Co.", "Tanishq", "Giva", "Swarovski"],
-    Beauty: ["L'Oreal", "MAC", "Estee Lauder", "Maybelline", "Clinique"]
+    Women: ["Zentro", "Biba", "Zara", "Mango", "Only"],
+    Men: ["Levi's", "Roadster", "HRX", "Allen Solly", "Nike"],
+    Kids: ["Carter's", "Mothercare", "Gini & Jony", "Max"],
+    Footwear: ["Bata", "Nike", "Adidas", "Aldo", "Puma"],
+    "Bags & Luggage": ["Wildcraft", "Caprese", "Lavie", "Safari"],
+    Jewellery: ["Giva", "Swarovski", "Voylla", "Tanishq"],
+    "Beauty & Health": ["Maybelline", "Lakme", "Nivea", "Dove"],
+    "Home & Kitchen": ["Solimo", "Wakefit", "Home Centre"],
+    Electronics: ["boAt", "Noise", "JBL", "Mi"],
+    "Sports & Fitness": ["Nike", "Adidas", "Puma", "HRX"]
   };
 
   const colors = ["Black", "White", "Navy Blue", "Red", "Olive Green", "Beige", "Charcoal Grey", "Silver", "Gold", "Rose Gold"];
   const sizes = {
-    Men: ["S", "M", "L", "XL", "XXL"],
     Women: ["XS", "S", "M", "L", "XL"],
-    Kids: ["2-3 Y", "4-5 Y", "6-7 Y", "8-9 Y"],
-    Shoes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
-    Accessories: ["FS"],
-    Watches: ["FS"],
-    Bags: ["Medium", "Large"],
-    Jewellery: ["FS"],
-    Beauty: ["FS"]
+    Men: ["S", "M", "L", "XL", "XXL"],
+    Kids: ["2-3Y", "4-5Y", "6-7Y", "8-9Y"],
+    Footwear: ["UK 4", "UK 5", "UK 6", "UK 7", "UK 8"],
+    "Bags & Luggage": ["One Size"],
+    Jewellery: ["One Size"],
+    "Beauty & Health": ["One Size"],
+    "Home & Kitchen": ["One Size"],
+    Electronics: ["One Size"],
+    "Sports & Fitness": ["S", "M", "L", "One Size"]
   };
 
   const images = {
-    Men: [
-      "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1617137968427-85924c800a22?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1505022610485-0249ba5b3675?auto=format&fit=crop&w=600&q=80"
-    ],
     Women: [
       "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=600&q=80"
+      "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80"
+    ],
+    Men: [
+      "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=600&q=80"
     ],
     Kids: [
-      "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1471286174243-e7a4dbf0b7c1?auto=format&fit=crop&w=600&q=80"
     ],
-    Shoes: [
+    Footwear: [
+      "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=600&q=80"
+      "https://images.unsplash.com/photo-1603487742131-4160ec999306?auto=format&fit=crop&w=600&q=80"
     ],
-    Accessories: [
-      "https://images.unsplash.com/photo-1508296695146-257a814070b4?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?auto=format&fit=crop&w=600&q=80"
-    ],
-    Watches: [
-      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1612817288484-6f916006741a?auto=format&fit=crop&w=600&q=80"
-    ],
-    Bags: [
+    "Bags & Luggage": [
       "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=600&q=80"
     ],
     Jewellery: [
       "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80"
+      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=600&q=80"
     ],
-    Beauty: [
+    "Beauty & Health": [
       "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1612817288484-6f916006741a?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=600&q=80"
+      "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=600&q=80"
+    ],
+    "Home & Kitchen": [
+      "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=600&q=80"
+    ],
+    Electronics: [
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=600&q=80"
+    ],
+    "Sports & Fitness": [
+      "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80"
     ]
   };
 
@@ -162,43 +173,53 @@ const generateProducts = (categoriesMap) => {
 
   categoriesData.forEach(cat => {
     const categoryId = categoriesMap[cat.name];
+    if (!categoryId) return;
 
-    // Create 6 items per category to reach 54 products total
-    cat.subcategories.forEach((sub, subIdx) => {
-      const brandList = brands[cat.name];
+    const brandList = brands[cat.name] || ["Zentro"];
+    const sizeList = sizes[cat.name] || ["S", "M", "L"];
+    const productImages = images[cat.name] || images.Women;
+
+    // ~2 products × 4 subs × 8 cats ≈ 64
+    cat.subcategories.forEach((subRaw, subIdx) => {
+      const sub = typeof subRaw === "string" ? subRaw : subRaw?.name;
+      if (!sub) return;
       const selectedBrand = brandList[subIdx % brandList.length];
-
       const numProductsInSub = cat.subcategories.length === 4 ? 2 : 1;
       for (let i = 0; i < numProductsInSub; i++) {
         const itemNumber = productCounter++;
-        const mrp = Math.round((500 + Math.random() * 4500) / 100) * 100 + 99; // 599 to 4999
-        const salePrice = Math.round((mrp * (0.4 + Math.random() * 0.4)) / 100) * 100 + 99; // 40% to 80% of MRP
-
-        const productImages = images[cat.name];
+        const mrp = Math.round((500 + Math.random() * 4500) / 100) * 100 + 99;
+        const salePrice = Math.round((mrp * (0.4 + Math.random() * 0.4)) / 100) * 100 + 99;
+        const slugBase = `${selectedBrand} Premium ${sub} Style ${itemNumber}`
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 80);
 
         products.push({
-          title: `${selectedBrand} Premium ${sub.substring(0, sub.length - (sub.endsWith("s") ? 1 : 0))} - Style ${itemNumber}`,
-          description: `Experience ultimate comfort and exquisite style with this premium product from ${selectedBrand}. Designed with high-quality materials and meticulous attention to detail, this item elevates your daily wardrobe effortlessly. Features modern fits, lightweight build, and luxury aesthetics. Perfect for styling across seasons.`,
-          sku: `SKU-${cat.name.substring(0, 3).toUpperCase()}-${sub.substring(0, 3).toUpperCase()}-${1000 + itemNumber}`,
+          title: `${selectedBrand} Premium ${sub.replace(/s$/, "")} - Style ${itemNumber}`,
+          slug: `${slugBase}-${itemNumber}`,
+          description: `Experience ultimate comfort and exquisite style with this premium product from ${selectedBrand}. Designed with high-quality materials and meticulous attention to detail for the modern wardrobe.`,
+          sku: `SKU-AUTO-${String(1000 + itemNumber)}`,
           mrp,
           salePrice,
+          discount: Math.max(0, Math.round(((mrp - salePrice) / mrp) * 100)),
           brand: selectedBrand,
           rating: Number((3.8 + Math.random() * 1.2).toFixed(1)),
           reviewCount: Math.floor(10 + Math.random() * 240),
           specifications: [
-            { name: "Material", value: cat.name === "Shoes" ? "Genuine Leather / Mesh" : cat.name === "Beauty" ? "Natural Extracts" : "Premium Cotton Blend" },
+            { name: "Material", value: "Premium fabric / finish" },
             { name: "Occasion", value: "Casual & Semi-Formal" },
             { name: "Fit", value: "Regular / Comfort Fit" },
             { name: "Origin", value: "Made in India" }
           ],
           colors: [colors[itemNumber % colors.length], colors[(itemNumber + 2) % colors.length]],
-          sizes: sizes[cat.name],
+          sizes: sizeList,
           images: [
             productImages[itemNumber % productImages.length],
             productImages[(itemNumber + 1) % productImages.length],
             productImages[(itemNumber + 2) % productImages.length]
           ],
-          videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-fashion-woman-with-silver-glitter-makeup-40097-large.mp4",
+          videoUrl: "",
           view360Images: [
             productImages[itemNumber % productImages.length],
             productImages[(itemNumber + 1) % productImages.length],
@@ -207,7 +228,8 @@ const generateProducts = (categoriesMap) => {
           stock: Math.floor(20 + Math.random() * 150),
           category: categoryId,
           subcategory: sub,
-          tags: [cat.name.toLowerCase(), sub.toLowerCase(), selectedBrand.toLowerCase(), "luxury", "fashion", "valois"],
+          tags: [cat.name.toLowerCase(), sub.toLowerCase(), selectedBrand.toLowerCase(), "Zentro", "fashion"],
+          status: "published",
           featured: itemNumber % 7 === 0,
           trending: itemNumber % 5 === 0,
           bestSeller: itemNumber % 6 === 0,
@@ -237,10 +259,10 @@ export const seedDatabase = async (force = false) => {
       settings = await WebsiteSettings.create({
         theme: "system",
         seo: {
-          title: "VALOIS Luxury Fashion Store",
-          metaDescription: "Discover premium apparel, footwear, watches, and beauty essentials from global designers. Safe & fast deliveries.",
+          title: "Zentro | Shop Everything",
+          metaDescription: "Zentro marketplace for men, women, kids, home, beauty, electronics and everyday essentials.",
           ogImage: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80",
-          keywords: ["fashion", "luxury", "clothing", "valois", "shoes", "watches"]
+          keywords: ["zentro", "marketplace", "fashion", "electronics", "home", "beauty"]
         },
         bannerImages: [
           "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1600&q=80",
@@ -259,9 +281,39 @@ export const seedDatabase = async (force = false) => {
             subtitle: "Redefine Your Wardrobe Staples With Premium Materials",
             link: "/search?category=Men"
           }
-        ]
+        ],
+        footerDetails: {
+          contactEmail: "support@zentro.com",
+          contactPhone: "+91 9999999999",
+          address: "123 Commerce St, Mumbai, India"
+        }
       });
       console.log("> Seeded Website Settings");
+    } else {
+      // Migrate legacy Kirnya/Valois branding to Zentro without wiping catalog
+      settings.seo = {
+        ...(settings.seo?.toObject?.() || settings.seo || {}),
+        title: "Zentro | Shop Everything",
+        metaDescription:
+          String(settings.seo?.metaDescription || "").includes("Zentro")
+            ? settings.seo.metaDescription
+            : "Zentro marketplace for men, women, kids, home, beauty, electronics and everyday essentials.",
+        keywords: ["zentro", "marketplace", "fashion", "electronics", "home", "beauty"]
+      };
+      const email = String(settings.footerDetails?.contactEmail || "").toLowerCase();
+      settings.footerDetails = {
+        ...(settings.footerDetails?.toObject?.() || settings.footerDetails || {}),
+        contactEmail:
+          email.includes("kirnya") || email.includes("valois") || !email
+            ? "support@zentro.com"
+            : settings.footerDetails.contactEmail,
+        address:
+          String(settings.footerDetails?.address || "").toLowerCase().includes("fashion")
+            ? "123 Commerce St, Mumbai, India"
+            : settings.footerDetails?.address || "123 Commerce St, Mumbai, India"
+      };
+      await settings.save();
+      console.log("> Updated Website Settings branding to Zentro");
     }
 
     // 2. Check if Categories exist
@@ -296,7 +348,7 @@ export const seedDatabase = async (force = false) => {
 
       await User.insertMany([
         {
-          name: "Valois Owner",
+          name: "ZENTRO Owner",
           email: "dlpfjdr@gmail.com",
           mobile: "+918888888888",
           role: "Owner",
@@ -304,8 +356,8 @@ export const seedDatabase = async (force = false) => {
           password: defaultHashedPassword
         },
         {
-          name: "Valois Admin",
-          email: adminEmail === "dlpfjdr@gmail.com" ? "admin@valois.com" : adminEmail,
+          name: "ZENTRO Admin",
+          email: adminEmail === "dlpfjdr@gmail.com" ? "admin@ZENTRO.com" : adminEmail,
           mobile: "+919999999999",
           role: "Admin",
           walletBalance: 50000,
@@ -313,7 +365,7 @@ export const seedDatabase = async (force = false) => {
         },
         {
           name: "Express Delivery",
-          email: "delivery@valois.com",
+          email: "delivery@ZENTRO.com",
           mobile: "+917777777777",
           role: "Delivery Partner",
           walletBalance: 500,
@@ -321,7 +373,7 @@ export const seedDatabase = async (force = false) => {
         },
         {
           name: "Demo Customer",
-          email: "customer@valois.com",
+          email: "customer@ZENTRO.com",
           mobile: "+916666666666",
           role: "Customer",
           walletBalance: 1500,
@@ -339,7 +391,7 @@ export const seedDatabase = async (force = false) => {
 
       await Coupon.insertMany([
         {
-          code: "KIRNYANEW",
+          code: "ZentroNEW",
           discountType: "Percentage",
           value: 20,
           minPurchase: 1499,
@@ -347,7 +399,7 @@ export const seedDatabase = async (force = false) => {
           expiryDate: expiry
         },
         {
-          code: "VALOISNEW",
+          code: "ZENTRONEW",
           discountType: "Percentage",
           value: 20,
           minPurchase: 1499,

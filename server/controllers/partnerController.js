@@ -1,4 +1,4 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import OTP from "../models/OTP.js";
@@ -843,7 +843,7 @@ export const adminCreateOffer = async (req, res, next) => {
           if (p.mobile) {
             await sendSMS(
               p.mobile,
-              `New delivery offer: ${areaLabel || "your area"} · Fee ₹${deliveryFee}. Open Kirnya Delivery app. Expires in ${expiresInMinutes}m.`
+              `New delivery offer: ${areaLabel || "your area"} · Fee ₹${deliveryFee}. Open Zentro Delivery app. Expires in ${expiresInMinutes}m.`
             );
           }
           if (p.email) {

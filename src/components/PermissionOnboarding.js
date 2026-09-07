@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -150,9 +150,9 @@ const PermissionOnboarding = () => {
       const enabled = permission === "granted";
       if (enabled) {
         try {
-          new Notification("Kirnya Fashion", {
+          new Notification("Zentro", {
             body: "Notifications enabled. We'll keep you updated on orders & offers.",
-            icon: "/favicon.png"
+            icon: "/favicon.png?v=5"
           });
         } catch {
           // Some browsers block Notification constructor without service worker
@@ -345,7 +345,7 @@ const PermissionOnboarding = () => {
                     <div>
                       <h3 className="text-xs font-bold text-zinc-900 dark:text-white">Allow notifications</h3>
                       <p className="mt-0.5 text-[11px] font-medium text-zinc-500">
-                        Get order status, delivery and offer alerts from Kirnya.
+                        Get order status, delivery and offer alerts from Zentro.
                       </p>
                     </div>
                   </div>

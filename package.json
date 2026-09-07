@@ -7,6 +7,7 @@
     "dev": "nodemon server.js",
     "build": "next build",
     "start": "node server.js",
+    "seed": "node run-seed.mjs",
     "lint": "eslint"
   },
   "dependencies": {

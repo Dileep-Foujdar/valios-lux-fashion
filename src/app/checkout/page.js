@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import Script from "next/script";
@@ -298,7 +298,7 @@ const CheckoutPage = () => {
             key: keyId,
             amount,
             currency: currency || "INR",
-            name: "Kirnya Fashion",
+            name: "Zentro",
             description: `Order #${orderNumber || order.orderNumber}`,
             order_id: rzpOrderId,
             handler: async (response) => {
