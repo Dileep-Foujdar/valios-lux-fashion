@@ -1,78 +1,115 @@
 ﻿import nodemailer from "nodemailer";
 import WebsiteSettings from "../models/WebsiteSettings.js";
 
-let cachedTestTransporter = null;
+const trim = (value) => String(value || "").trim();
+const normalizePass = (value) => trim(value).replace(/\s+/g, "");
 
-// Helper to get transporter dynamically from environment, DB settings, or automatic Ethereal SMTP test account
-const getTransporter = async () => {
-  let host = process.env.EMAIL_HOST || process.env.SMTP_HOST;
-  let port = parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || "587");
-  let user = process.env.EMAIL_USER || process.env.SMTP_USER;
-  let pass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
+const readEnvSmtp = () => {
+  const host = trim(process.env.EMAIL_HOST || process.env.SMTP_HOST) || "smtp.gmail.com";
+  const port = parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || "587", 10);
+  const user = trim(process.env.EMAIL_USER || process.env.SMTP_USER);
+  // Prefer non-empty password (empty EMAIL_PASS="" must not block SMTP_PASS)
+  const pass = normalizePass(process.env.EMAIL_PASS) || normalizePass(process.env.SMTP_PASS);
+  const from = trim(process.env.SMTP_FROM || process.env.EMAIL_FROM || user);
 
+  if (!user || !pass) return null;
+  return { host, port: Number.isFinite(port) ? port : 587, user, pass, from, source: "env" };
+};
+
+const readDbSmtp = async () => {
   try {
-    const settings = await WebsiteSettings.findOne();
-    if (settings && settings.smtp && settings.smtp.host && settings.smtp.user && settings.smtp.pass) {
-      host = settings.smtp.host;
-      port = settings.smtp.port;
-      user = settings.smtp.user;
-      pass = settings.smtp.pass;
-    }
-  } catch (err) {
-    // Fall back to env variables if DB query fails
-  }
+    const settings = await WebsiteSettings.findOne().lean();
+    const smtp = settings?.smtp;
+    if (!smtp) return null;
 
-  // Use configured SMTP server if credentials are specified in .env or DB
-  if (host && user && pass) {
+    const host = trim(smtp.host) || "smtp.gmail.com";
+    const user = trim(smtp.user);
+    const pass = normalizePass(smtp.pass);
+    const port = parseInt(smtp.port || 587, 10);
+    const from = trim(smtp.from || user);
+
+    if (!user || !pass) return null;
+    return { host, port: Number.isFinite(port) ? port : 587, user, pass, from, source: "db" };
+  } catch {
+    return null;
+  }
+};
+
+const createGmailTransport = ({ host, port, user, pass }) => {
+  const isGmail =
+    /gmail\.com$/i.test(host) ||
+    /googlemail\.com$/i.test(host) ||
+    /@gmail\.com$/i.test(user);
+
+  if (isGmail) {
     return nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465, // true for 465, false for other ports
-      auth: {
-        user,
-        pass
-      }
+      service: "gmail",
+      auth: { user, pass }
     });
   }
 
-  // Fallback to real Ethereal SMTP test transport if EMAIL_USER / EMAIL_PASS are not filled in .env
-  if (!cachedTestTransporter) {
-    try {
-      const testAccount = await nodemailer.createTestAccount();
-      cachedTestTransporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass
-        }
-      });
-    } catch (testErr) {
-      return null;
-    }
-  }
-
-  return cachedTestTransporter;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    requireTLS: port === 587,
+    auth: { user, pass }
+  });
 };
 
-export const sendEmail = async ({ to, subject, html, text }) => {
-  const transporter = await getTransporter();
-  const fromEmail = process.env.EMAIL_USER || process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@zentro.com";
+const formatAuthError = (err) => {
+  const raw = err?.response || err?.message || String(err);
+  if (/535|BadCredentials|Username and Password not accepted/i.test(raw)) {
+    return (
+      "Gmail login failed. Create a Google App Password at https://myaccount.google.com/apppasswords " +
+      "then set EMAIL_USER and EMAIL_PASS in .env (or Admin → Shop Configuration SMTP). " +
+      "Normal Gmail passwords are blocked by Google."
+    );
+  }
+  return raw;
+};
 
-  if (!transporter) {
-    throw new Error("Email service is unavailable. Please configure EMAIL_HOST, EMAIL_PORT, EMAIL_USER, and EMAIL_PASS in environment variables.");
+const resolveSmtpConfig = async () => {
+  const fromEnv = readEnvSmtp();
+  if (fromEnv) return fromEnv;
+  return readDbSmtp();
+};
+
+/**
+ * Sends mail via Gmail SMTP only (.env preferred, then Admin SMTP settings).
+ * No Ethereal / third-party preview inboxes.
+ */
+export const sendEmail = async ({ to, subject, html, text }) => {
+  const config = await resolveSmtpConfig();
+
+  if (!config) {
+    throw new Error(
+      "Gmail SMTP is not configured. Set EMAIL_USER and EMAIL_PASS in .env " +
+        "(App Password from https://myaccount.google.com/apppasswords)."
+    );
   }
 
-  const info = await transporter.sendMail({
-    from: `"Zentro" <${fromEmail}>`,
-    to,
-    subject,
-    text: text || "Please enable HTML view to read this mail.",
-    html
-  });
+  const transporter = createGmailTransport(config);
+  const fromEmail = config.from || config.user;
 
-  return info;
+  try {
+    await transporter.verify();
+  } catch (verifyErr) {
+    throw new Error(formatAuthError(verifyErr));
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: `"Zentro" <${fromEmail}>`,
+      to,
+      subject,
+      text: text || "Please enable HTML view to read this mail.",
+      html
+    });
+    return { ...info, transportMode: "gmail" };
+  } catch (sendErr) {
+    throw new Error(formatAuthError(sendErr));
+  }
 };
 
 // Ready-to-use premium HTML templates
@@ -92,7 +129,7 @@ export const emailTemplates = {
       <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 30px 0;" />
       <div style="text-align: center; font-size: 12px; color: #94a3b8;">
         <p style="margin: 0 0 5px 0;">&copy; ${new Date().getFullYear()} Zentro. All rights reserved.</p>
-        <p style="margin: 0;">123 Fashion Street, Mumbai, Maharashtra, India</p>
+        <p style="margin: 0;">123 Commerce St, Mumbai, India</p>
       </div>
     </div>
   `,

@@ -825,6 +825,19 @@ const AdminDashboardInner = () => {
                         <h4 className="sm:col-span-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                           SMTP Mail Server Settings (Nodemailer)
                         </h4>
+                        <p className="sm:col-span-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          OTP mail is sent only through Gmail SMTP. Create an{" "}
+                          <a
+                            href="https://myaccount.google.com/apppasswords"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline"
+                          >
+                            App Password
+                          </a>
+                          , then set it in <code className="text-[10px]">.env</code> as{" "}
+                          <code className="text-[10px]">EMAIL_PASS</code> (preferred) or save it here and click Save.
+                        </p>
                         <div className="sm:col-span-2">
                           <label className="text-[10px] text-zinc-500 mb-1.5 block">SMTP Host</label>
                           <input
@@ -866,12 +879,16 @@ const AdminDashboardInner = () => {
                           <input
                             type="password"
                             value={websiteSettings.smtp?.pass || ""}
+                            placeholder={websiteSettings.smtp?.pass ? "••••••••••••" : "Google App Password (16 chars)"}
                             onChange={(e) => setWebsiteSettings({
                               ...websiteSettings,
                               smtp: { ...websiteSettings.smtp, pass: e.target.value }
                             })}
                             className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-semibold text-zinc-900 outline-none focus:border-black dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                           />
+                          <p className="mt-1 text-[10px] text-zinc-400">
+                            Leave blank to keep the current saved password.
+                          </p>
                         </div>
                       </div>
 
