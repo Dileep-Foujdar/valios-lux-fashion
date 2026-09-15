@@ -421,6 +421,35 @@ export const updateSettings = async (req, res, next) => {
           settings.productVisibility = new Map(
             Object.entries({ ...DEFAULT_PRODUCT_VISIBILITY, ...updates.productVisibility })
           );
+        } else if (key === "smtp") {
+          const nextSmtp = { ...(updates.smtp || {}) };
+          const prevPass = settings.smtp?.pass || "";
+          // Keep existing password when admin leaves the password field blank
+          if (!String(nextSmtp.pass || "").trim()) {
+            nextSmtp.pass = prevPass;
+          }
+          if (!String(nextSmtp.host || "").trim()) nextSmtp.host = "smtp.gmail.com";
+          if (!nextSmtp.port) nextSmtp.port = 587;
+          if (!String(nextSmtp.user || "").trim()) {
+            nextSmtp.user =
+              process.env.EMAIL_USER ||
+              process.env.SMTP_USER ||
+              settings.smtp?.user ||
+              "";
+          }
+          settings.smtp = {
+            host: nextSmtp.host,
+            port: Number(nextSmtp.port) || 587,
+            user: nextSmtp.user,
+            pass: nextSmtp.pass,
+            from: nextSmtp.from || nextSmtp.user || ""
+          };
+        } else if (key === "sms") {
+          const nextSms = { ...(updates.sms || {}) };
+          if (!String(nextSms.token || "").trim()) {
+            nextSms.token = settings.sms?.token || "";
+          }
+          settings.sms = { ...(settings.sms?.toObject?.() || settings.sms || {}), ...nextSms };
         } else {
           settings[key] = updates[key];
         }

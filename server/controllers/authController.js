@@ -221,7 +221,7 @@ export const requestOTP = async (req, res, next) => {
         return res.status(200).json({
           success: true,
           purpose: "login",
-          message: `OTP sent to your email (${destination}). Check your inbox.`
+          message: `OTP sent to your Gmail (${destination}). Check inbox / spam.`
         });
       } catch (emailErr) {
         return res.status(400).json({
@@ -287,7 +287,7 @@ export const requestOTP = async (req, res, next) => {
       return res.status(200).json({
         success: true,
         purpose: "register",
-        message: `Verification OTP sent to your email (${destination}). Check your inbox to continue.`
+        message: `Verification OTP sent to your Gmail (${destination}). Check inbox / spam.`
       });
     } catch (emailErr) {
       return res.status(400).json({
